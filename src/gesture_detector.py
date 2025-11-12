@@ -31,11 +31,30 @@ class GestureDetector:
         for gesture in self.gestures:
             try:
                 if gesture.check(results, image_shape):
-                    detected_gestures.append(gesture.name)
+                    detected_gestures.append(gesture)
             except Exception as e:
                 print(f"Error en gesto {gesture.name}: {e}")
 
-        return detected_gestures  # devuelve lista de gestos detectados
+        if not detected_gestures:
+            return []
+
+        # Seleccionar solo el gesto de mayor prioridad
+        highest_priority_gesture = max(detected_gestures, key=lambda g: g.priority)
+        return [highest_priority_gesture.name]  # Devuelve lista con un solo gesto
+
+
+    # Varios gestos
+    # def detect_gestures(self, results, image_shape: tuple) -> list:
+    #     detected_gestures = []
+
+    #     for gesture in self.gestures:
+    #         try:
+    #             if gesture.check(results, image_shape):
+    #                 detected_gestures.append(gesture.name)
+    #         except Exception as e:
+    #             print(f"Error en gesto {gesture.name}: {e}")
+
+    #     return detected_gestures  # devuelve lista de gestos detectados
 
     def process_frame(self, image):
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
