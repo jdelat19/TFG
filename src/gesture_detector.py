@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 from typing import List
 from gestures import BaseGesture, DEFAULT_GESTURES
+from facial_expression import FacialExpressionDetector
 
 class GestureDetector:
     def __init__(self, gestures: List[BaseGesture] = None, 
@@ -20,7 +21,7 @@ class GestureDetector:
         self.draw_face = draw_face
         self.draw_pose = draw_pose
         self.draw_hands = draw_hands
-
+        self.emotion_detector = FacialExpressionDetector()
     
     def list_gestures(self):
         return [gesture.name for gesture in self.gestures]
@@ -42,8 +43,10 @@ class GestureDetector:
         highest_priority_gesture = max(detected_gestures, key=lambda g: g.priority)
         return [highest_priority_gesture.name]  # Devuelve lista con un solo gesto
 
+    # ===========================
+    # Deteccion de varios gestos
+    # ===========================
 
-    # Varios gestos
     # def detect_gestures(self, results, image_shape: tuple) -> list:
     #     detected_gestures = []
 
@@ -61,16 +64,22 @@ class GestureDetector:
         results = self.holistic.process(image_rgb)
 
         detected_gestures = self.detect_gestures(results, image.shape[:2])
-        self.current_gesture = ", ".join(detected_gestures) if detected_gestures else "Ninguno"
+        self.current_gesture = detected_gestures[0] if detected_gestures else "Ninguno"
 
         self._draw_landmarks(image, results)
 
-        # Mostrar los gestos detectados
+        # Mostrar el gesto
         cv2.putText(image, f"Gesto: {self.current_gesture}",
                     (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
 
-        # Escalar imagen para mostrar más grande
-        scale_percent = 150  # 150% del tamaño original
+        # Mostrar emoción facial
+        emotion = self.emotion_detector.detect_emotion(image)
+        if emotion:
+            cv2.putText(image, f"Emoción: {emotion}",
+                        (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 2)
+
+        # Escalar imagen
+        scale_percent = 150
         width = int(image.shape[1] * scale_percent / 100)
         height = int(image.shape[0] * scale_percent / 100)
         image = cv2.resize(image, (width, height))

@@ -185,46 +185,53 @@ class ScratchNeckGesture(BaseGesture):
 class BiteNailsGesture(BaseGesture):
     def __init__(self):
         super().__init__("morderse_unas", 0.8)
-        self.priority = 5
+        self.priority = 9
 
     def check(self, results, image_shape):
-        # Puntos de la boca
-        mouth_upper = get_landmark_coords(results.face_landmarks, 13, image_shape)
-        mouth_lower = get_landmark_coords(results.face_landmarks, 14, image_shape)
-
-        if not mouth_upper or not mouth_lower:
+        if not results.face_landmarks:
             return False
 
-        # Centro de la boca
-        mouth_center = (
-            (mouth_upper[0] + mouth_lower[0]) // 2,
-            (mouth_upper[1] + mouth_lower[1]) // 2
-        )
+        # Landmarks de la boca
+        mouth_ids = [61, 291, 13, 14]
+        mouth_points = [
+            get_landmark_coords(results.face_landmarks, idx, image_shape)
+            for idx in mouth_ids
+        ]
 
-        # Definir rango vertical alrededor de la boca para evitar detecciones bajas
-        vertical_margin = 40  # píxeles arriba y abajo
-        top = mouth_center[1] - vertical_margin
-        bottom = mouth_center[1] + vertical_margin
+        if not all(mouth_points):
+            return False
 
-        # Verificar ambas manos
+        # Bounding box de la boca
+        xs = [p[0] for p in mouth_points]
+        ys = [p[1] for p in mouth_points]
+        left, right = min(xs) - 10, max(xs) + 10
+        top, bottom = min(ys) - 10, max(ys) + 10
+
+        # 👉 AQUÍ VA
+        finger_tips = [4, 8, 12, 16, 20]
+
+        # Comprobar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
-            if hand_landmarks:
-                # Puntas de los dedos relevantes
-                for idx in [4, 8, 12]:  # pulgar, índice, medio
-                    finger_tip = get_landmark_coords(hand_landmarks, idx, image_shape)
-                    if finger_tip:
-                        x, y = finger_tip
-                        # Solo si está dentro del rango vertical de la boca
-                        if top <= y <= bottom and calculate_distance(finger_tip, mouth_center) < 60:
-                            return True
+            if not hand_landmarks:
+                continue
+
+            for idx in finger_tips:
+                tip = get_landmark_coords(hand_landmarks, idx, image_shape)
+                if not tip:
+                    continue
+
+                x, y = tip
+                if left <= x <= right and top <= y <= bottom:
+                    return True
 
         return False
+
 
 # Manos en la cara
 class HandsFaceGesture(BaseGesture):
     def __init__(self):
         super().__init__("manos_en_cara", 0.6)
-        self.priority = 5
+        self.priority = 6
     
     def check(self, results, image_shape):
         if not results.face_landmarks:
@@ -259,7 +266,8 @@ class HandsFaceGesture(BaseGesture):
 class TouchHeadGesture(BaseGesture):
     def __init__(self):
         super().__init__("tocarse_cabeza", 0.6)
-    
+        self.priority = 5
+
     def check(self, results, image_shape):
         head_top = get_landmark_coords(results.pose_landmarks, 0, image_shape)
         
@@ -282,6 +290,7 @@ class TouchHeadGesture(BaseGesture):
 class HeadTiltGesture(BaseGesture):
     def __init__(self):
         super().__init__("cabeza_inclinada", 0.5)
+        self.priority = 9
     
     def check(self, results, image_shape):
         left_eye = get_landmark_coords(results.face_landmarks, 33, image_shape)
