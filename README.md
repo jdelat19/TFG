@@ -73,6 +73,9 @@ TFG/
 |     31 | Punta del pie izquierdo  |
 |     32 | Punta del pie derecho    |
 ```
+
+FINGER_TIPS = [4, 8, 12, 16, 20]
+
 ## Tecnologías Utilizadas
 
 - **Python 3** - Lenguaje de programación

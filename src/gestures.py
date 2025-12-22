@@ -9,7 +9,7 @@ class BaseGesture(ABC):
         self.name = name
         self.confidence_threshold = confidence_threshold
         self.priority = 1
-    
+        
     @abstractmethod
     def check(self, results, image_shape: tuple) -> bool:
         pass
@@ -110,76 +110,6 @@ class ScratchNeckGesture(BaseGesture):
                     if point and left <= point[0] <= right and top <= point[1] <= bottom:
                         return True
         return False
-
-# Rascarse el cuello 
-# class ScratchNeckGesture(BaseGesture):
-#     def __init__(self):
-#         super().__init__("rascarse_cuello", 0.7)
-#         self.priority = 4
-
-#     def check(self, results, image_shape):
-#         left_hand_landmarks = results.left_hand_landmarks
-#         right_hand_landmarks = results.right_hand_landmarks
-
-#         left_shoulder = get_landmark_coords(results.pose_landmarks, 11, image_shape)
-#         right_shoulder = get_landmark_coords(results.pose_landmarks, 12, image_shape)
-#         nose = get_landmark_coords(results.pose_landmarks, 0, image_shape)
-#         mouth = get_landmark_coords(results.pose_landmarks, 9, image_shape)  # superior boca
-
-#         if not left_shoulder or not right_shoulder:
-#             return False
-
-#         # Calcular centro del cuello (entre hombros)
-#         neck_center = (
-#             (left_shoulder[0] + right_shoulder[0]) // 2,
-#             (left_shoulder[1] + right_shoulder[1]) // 2
-#         )
-
-#         upper_limit = neck_center[1] - 40  # un poco arriba del cuello
-#         lower_limit = neck_center[1] + 80  # un poco debajo del cuello
-
-#         def is_near_neck(hand_point):
-#             if not hand_point:
-#                 return False
-
-#             # Evitar confundir con boca o nariz
-#             if mouth and calculate_distance(hand_point, mouth) < 60:
-#                 return False
-#             if nose and calculate_distance(hand_point, nose) < 60:
-#                 return False
-
-#             # Definir región del cuello más precisa
-#             top = neck_center[1] - 40
-#             bottom = neck_center[1] + 40
-#             left = neck_center[0] - 50
-#             right = neck_center[0] + 50
-
-#             x, y = hand_point
-#             if not (left <= x <= right and top <= y <= bottom):
-#                 return False
-
-#             # Rechazar puntos por debajo de los hombros (evita pecho)
-#             if left_shoulder and y > left_shoulder[1] + 20:
-#                 return False
-
-#             return True
-        
-#         # Verificar mano izquierda
-#         if left_hand_landmarks:
-#             for idx in [0, 8]:  # muñeca y punta del índice
-#                 point = get_landmark_coords(left_hand_landmarks, idx, image_shape)
-#                 if point and is_near_neck(point):
-#                     return True
-
-#         # Verificar mano derecha
-#         if right_hand_landmarks:
-#             for idx in [0, 8]:
-#                 point = get_landmark_coords(right_hand_landmarks, idx, image_shape)
-#                 if point and is_near_neck(point):
-#                     return True
-
-#         return False
-
 
 # Morderse las uñas
 class BiteNailsGesture(BaseGesture):
@@ -391,7 +321,6 @@ class HandsTogetherGesture(BaseGesture):
             return calculate_distance(left_wrist, right_wrist) < 100
         
         return False
-    
     
 class LegShakeGesture(BaseGesture):
     def __init__(self):
