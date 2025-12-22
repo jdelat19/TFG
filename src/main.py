@@ -20,7 +20,9 @@ def main():
     print("Presiona 'g' para ver gestos disponibles")
     print("Presiona 's' para ver estadísticas")
     print("Presiona 'r' para resetear detector")
-    print("Presiona '1' para alternar landmarks de cara/cuerpo/manos")
+    print("Presiona '1' para alternar landmarks de cara")
+    print("Presiona '2' para alternar landmarks de cuerpo")
+    print("Presiona '3' para alternar landmarks de manos")
     print("Presiona 'e' para activar/desactivar detección de emociones")
     
     cap = cv2.VideoCapture(1)
@@ -66,7 +68,11 @@ def main():
             print("Detector resetado")
         elif key == ord('1'):
             detector.draw_face = not detector.draw_face
+            print(f"Landmarks: Cara={detector.draw_face}, Cuerpo={detector.draw_pose}, Manos={detector.draw_hands}")
+        elif key == ord('2'):
             detector.draw_pose = not detector.draw_pose
+            print(f"Landmarks: Cara={detector.draw_face}, Cuerpo={detector.draw_pose}, Manos={detector.draw_hands}")
+        elif key == ord('3'):
             detector.draw_hands = not detector.draw_hands
             print(f"Landmarks: Cara={detector.draw_face}, Cuerpo={detector.draw_pose}, Manos={detector.draw_hands}")
         elif key == ord('e'):
