@@ -1,5 +1,5 @@
 import cv2
-from fer import FER
+from fer.fer import FER
 from collections import deque, Counter
 import numpy as np
 

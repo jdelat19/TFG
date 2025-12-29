@@ -1,7 +1,8 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import cv2
+
 from gesture_detector import GestureDetector
 
 
@@ -25,7 +26,7 @@ def main():
     print("Presiona '3' para alternar landmarks de manos")
     print("Presiona 'e' para activar/desactivar detección de emociones")
     
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     
     if not cap.isOpened():
         cap = cv2.VideoCapture(1)
