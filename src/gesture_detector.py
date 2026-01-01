@@ -105,7 +105,7 @@ class GestureDetector:
         self._display_info(image, raw_gesture, emotion_data)
         
         # Escalar imagen para mejor visualización
-        image = self._resize_image(image, scale_percent=150)
+        #image = self._resize_image(image, scale_percent=150)
         
         self.frame_count += 1
         return image, {
