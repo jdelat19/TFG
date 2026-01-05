@@ -94,3 +94,78 @@ FINGER_TIPS = [4, 8, 12, 16, 20]
 ## Modelos usados
 - **FER**
 
+ros2 run gesture_emotion_ros gesture_emotion_node
+
+ros2 topic echo /gestures_emotions
+
+
+# Tras agregar ROS
+## Funcionalidades
+
+- Captura de video en tiempo real desde la cámara.
+- Detección de gestos usando landmarks (MediaPipe).
+- Detección de emociones usando FER.
+- Publicación de resultados en ROS 2:
+  - **Topic:** `/gestures_emotions`
+  - **Formato del mensaje:** `Gesto: <nombre> | Emoción: <nombre> (<score>)`
+
+---
+
+## Instalación de dependencias
+
+**ROS 2** y paquetes necesarios:
+
+```bash
+sudo apt update
+sudo apt install ros-kaiju-cv-bridge python3-opencv
+```
+
+**Dependecias de Python**
+
+```bash
+pip install --user mediapipe fer tensorflow mtcnn
+```
+
+## Construcción e inicio del nodo
+
+Desde la raíz del workspace ROS 2 (ros2_ws):
+
+# Limpiar builds previos
+rm -rf build install log
+
+# Construir workspace
+colcon build
+
+# Fuente del setup del workspace
+source install/setup.bash
+
+# Ejecutar nodo de gestos y emociones
+ros2 run gesture_emotion_ros gesture_emotion_node
+
+# Visualización de los datos
+
+* Listar topics de ROS 2:
+```bash
+ros2 topic list
+```
+
+* Ver lo que publica el nodo:
+```bash
+ros2 topic echo /gestures_emotions
+```
+
+## Estructura 
+src
+    ├── gesture_emotion_ros
+    │   ├── gesture_emotion_ros
+    │   │   ├── facial_expression.py
+    │   │   ├── gesture_detector.py
+    │   │   ├── gesture_emotion_node.py
+    │   │   ├── gestures.py
+    │   │   ├── __init__.py
+    │   │   └── utils.py
+    │   ├── package.xml
+    │   ├── resource
+    │   │   └── gesture_emotion_ros
+    │   ├── setup.cfg
+    │   ├── setup.py
