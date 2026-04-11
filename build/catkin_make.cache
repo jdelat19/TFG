@@ -1,0 +1,2 @@
+human_detection
+-DCATKIN_DEVEL_PREFIX=/home/javier/Escritorio/TFG/devel -DCMAKE_INSTALL_PREFIX=/home/javier/Escritorio/TFG/install -G Unix Makefiles

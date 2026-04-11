@@ -1,0 +1,20 @@
+<launch>
+
+    <!-- ROS core NO se pone aquí (se ejecuta aparte) -->
+
+    <!-- Detector -->
+    <node name="human_detector"
+          pkg="human_detection"
+          type="ros_node.py"
+          output="screen" />
+
+    <!-- Avatar -->
+    <node name="avatar_node"
+          pkg="human_detection"
+          type="avatar_node.py"
+          output="screen">
+
+        <param name="mode" value="1" />
+    </node>
+
+</launch>
