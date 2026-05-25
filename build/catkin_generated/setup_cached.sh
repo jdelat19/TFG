@@ -7,4 +7,4 @@
 # new environment variables
 
 # modified environment variables
-export PWD='/home/javier/Escritorio/TFG/build'
+export PWD='/home/javier/Escritorio/preVoice/TFG/build'
