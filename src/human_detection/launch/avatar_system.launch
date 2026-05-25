@@ -1,20 +1,22 @@
 <launch>
+  <arg name="mode" default="1" />
+  <arg name="base_path" default="$(env HOME)/Escritorio/TFG/src/human_detection/media" />
 
-    <!-- ROS core NO se pone aquí (se ejecuta aparte) -->
+  <node name="voice_emotion_node"
+        pkg="human_detection"
+        type="voice_node.py"
+        output="screen" />
 
-    <!-- Detector -->
-    <node name="human_detector"
-          pkg="human_detection"
-          type="ros_node.py"
-          output="screen" />
+  <node name="human_detector"
+        pkg="human_detection"
+        type="ros_node.py"
+        output="screen" />
 
-    <!-- Avatar -->
-    <node name="avatar_node"
-          pkg="human_detection"
-          type="avatar_node.py"
-          output="screen">
-
-        <param name="mode" value="1" />
-    </node>
-
+  <node name="avatar_node"
+        pkg="human_detection"
+        type="avatar_node.py"
+        output="screen">
+    <param name="mode" value="$(arg mode)" />
+    <param name="base_path" value="$(arg base_path)" />
+  </node>
 </launch>

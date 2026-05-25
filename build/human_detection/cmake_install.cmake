@@ -52,3 +52,23 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/human_detection" TYPE FILE FILES "/home/javier/Escritorio/TFG/src/human_detection/package.xml")
 endif()
 
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/human_detection" TYPE PROGRAM FILES "/home/javier/Escritorio/TFG/build/human_detection/catkin_generated/installspace/ros_node.py")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/human_detection" TYPE PROGRAM FILES "/home/javier/Escritorio/TFG/build/human_detection/catkin_generated/installspace/avatar_node.py")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/human_detection" TYPE PROGRAM FILES "/home/javier/Escritorio/TFG/build/human_detection/catkin_generated/installspace/voice_node.py")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/human_detection" TYPE DIRECTORY FILES "/home/javier/Escritorio/TFG/src/human_detection/launch")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/human_detection" TYPE DIRECTORY FILES "/home/javier/Escritorio/TFG/src/human_detection/media")
+endif()
+
