@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import re
-import time
 from pathlib import Path
 
 import numpy as np
@@ -127,12 +126,13 @@ class VoiceEmotionNode:
 
         label_map = {
             "neu": "neutral",
-            "ang": "angry",
-            "hap": "happy",
-            "sad": "sad",
-            "fea": "fear",
-            "dis": "disgust",
+            "ang": "enojo",
+            "hap": "feliz",
+            "sad": "triste",
+            "fea": "miedo",
+            "dis": "enojo",
         }
+
         return label_map.get(label, label), score
 
     def analyze_text(self, text):
@@ -145,13 +145,13 @@ class VoiceEmotionNode:
         top = scores[0]
 
         mapping = {
-            "anger": "angry",
-            "joy": "happy",
-            "surprise": "surprised",
-            "sadness": "sad",
-            "fear": "fear",
+            "anger": "enojo",
+            "joy": "feliz",
+            "surprise": "sorpresa",
+            "sadness": "triste",
+            "fear": "miedo",
             "neutral": "neutral",
-            "disgust": "angry",
+            "disgust": "enojo",
         }
         return mapping.get(top["label"].lower(), "neutral"), float(top["score"]), scores
 
@@ -161,28 +161,28 @@ class VoiceEmotionNode:
         text_lower = text.lower()
 
         if find_matches(text_lower, self.explicit_anger):
-            return "angry"
+            return "enojo"
         if find_matches(text_lower, self.explicit_joy):
-            return "happy"
+            return "feliz"
         if find_matches(text_lower, self.explicit_sadness):
-            return "sad"
+            return "triste"
         if find_matches(text_lower, self.explicit_fear):
-            return "fear"
+            return "miedo"
         if find_matches(text_lower, self.explicit_surprise):
-            return "surprised"
+            return "sorpresa"
         if find_matches(text_lower, self.explicit_neutral):
             return "neutral"
 
-        if t_label == "angry" and t_score >= 0.40:
-            return "angry"
-        if t_label == "happy" and t_score >= 0.40:
-            return "happy" if v_label in ["happy", "neutral"] else "mixed"
-        if t_label == "sad" and t_score >= 0.40:
-            return "sad"
-        if t_label == "fear" and t_score >= 0.40:
-            return "fear"
-        if t_label == "surprised" and t_score >= 0.40:
-            return "surprised"
+        if t_label == "enojo" and t_score >= 0.40:
+            return "enojo"
+        if t_label == "feliz" and t_score >= 0.40:
+            return "feliz" if v_label in ["feliz", "neutral"] else "mixta"
+        if t_label == "triste" and t_score >= 0.40:
+            return "triste"
+        if t_label == "miedo" and t_score >= 0.40:
+            return "miedo"
+        if t_label == "sorpresa" and t_score >= 0.40:
+            return "sorpresa"
         if t_label == "neutral":
             return v_label
         if v_score >= 0.55:
@@ -225,3 +225,4 @@ if __name__ == "__main__":
         VoiceEmotionNode().run()
     except rospy.ROSInterruptException:
         pass
+

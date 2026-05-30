@@ -8,7 +8,6 @@ import rospy
 from std_msgs.msg import String
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from gesture_detector import GestureDetector
 
 
@@ -17,11 +16,13 @@ class HumanROSNode:
         rospy.init_node("human_detector", anonymous=True)
         self.pub = rospy.Publisher("/human_state", String, queue_size=10)
 
+        self.mode = int(rospy.get_param("~mode", 1))
+
         self.detector = GestureDetector(
             draw_face=True,
             draw_pose=True,
             draw_hands=True,
-            enable_emotion_detection=True,
+            enable_emotion_detection=(self.mode != 4),
         )
 
         self.cap = cv2.VideoCapture(0)

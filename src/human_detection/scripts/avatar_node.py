@@ -11,7 +11,11 @@ class AvatarNode:
     def __init__(self):
         rospy.init_node("avatar_node")
 
-        self.mode = rospy.get_param("~mode", 1)
+        self.mode = int(rospy.get_param("~mode", 1))
+
+        print("MODE =", self.mode)
+        print("TYPE =", type(self.mode))
+
         self.base_path = rospy.get_param(
             "~base_path",
             os.path.expanduser("~/Escritorio/TFG/src/human_detection/media"),
@@ -19,6 +23,7 @@ class AvatarNode:
 
         self.current_video = None
         self.cap = None
+
         self.last_payload = {
             "gesture": "Ninguno",
             "emotion": "neutral",
@@ -26,74 +31,117 @@ class AvatarNode:
         }
 
         rospy.Subscriber("/human_state", String, self.callback)
+
         rospy.loginfo(f"Avatar node iniciado en modo {self.mode}")
 
     def callback(self, msg):
         try:
-            data = json.loads(msg.data)
-            self.last_payload = data
+            self.last_payload = json.loads(msg.data)
         except Exception:
-            return
-
-        gesture = self.last_payload.get("gesture", "Ninguno")
-        emotion = self.resolve_emotion(self.last_payload)
-        key = self.get_key(gesture, emotion)
-
-        if self.mode in [1, 3]:
-            self.show_image(key)
-        else:
-            self.play_video(key)
+            pass
 
     def resolve_emotion(self, data):
-        voice_emotion = (data.get("voice_final_emotion") or "").lower()
-        body_emotion = (data.get("emotion") or "").lower()
 
-        if voice_emotion and voice_emotion != "neutral":
-            return voice_emotion
+        face_emotion = (
+            data.get("emotion")
+            or "neutral"
+        ).lower()
 
-        mapping = {
-            "enojo": "angry",
-            "feliz": "happy",
-            "triste": "sad",
-            "sorpresa": "surprised",
-            "neutral": "neutral",
-            "no detectado": "no detectado",
-        }
-        return mapping.get(body_emotion, body_emotion or "neutral")
+        voice_emotion = (
+            data.get("voice_final_emotion")
+            or data.get("voiceemotion")
+            or "neutral"
+        ).lower()
+
+        # Modos con voz
+        if self.mode in [2, 3]:
+
+            # Prioridad absoluta a la voz
+            if voice_emotion != "neutral":
+                return voice_emotion
+
+            return face_emotion
+
+        return face_emotion
 
     def get_key(self, gesture, emotion):
+
         gesture = (gesture or "Ninguno").lower()
         emotion = (emotion or "neutral").lower()
 
-        if self.mode in [1, 2]:
+        # Modo 1 -> imágenes emociones
+        if self.mode == 1:
             return emotion
-        return f"{gesture}_{emotion}"
+
+        # Modo 2 -> voz+cara -> imágenes emociones
+        if self.mode == 2:
+            return emotion
+
+        # Modo 3 -> voz+cara -> vídeos emociones
+        if self.mode == 3:
+            return emotion
+
+        # Modo 4 -> vídeos de gestos
+        if self.mode == 4:
+            return gesture
+
+        return emotion
 
     def show_image(self, key):
-        path = os.path.join(self.base_path, "imagenes", f"{key}.png")
+
+        path = os.path.join(
+            self.base_path,
+            "imagenes",
+            f"{key}.png",
+        )
+
         if not os.path.exists(path):
-            path = os.path.join(self.base_path, "imagenes", "no detectado.png")
+            path = os.path.join(
+                self.base_path,
+                "imagenes",
+                "no detectado.png",
+            )
+
         img = cv2.imread(path)
+
         if img is None:
             return
+
         cv2.imshow("Avatar", img)
         cv2.waitKey(1)
 
     def play_video(self, key):
-        path = os.path.join(self.base_path, "videos", f"{key}.mp4")
+
+        path = os.path.join(
+            self.base_path,
+            "videos",
+            f"{key}.mp4",
+        )
+
         if not os.path.exists(path):
-            path = os.path.join(self.base_path, "videos", "no detectado.mp4")
+            path = os.path.join(
+                self.base_path,
+                "videos",
+                "no detectado.mp4",
+            )
 
         if self.current_video != path:
+
             if self.cap:
                 self.cap.release()
+
             self.cap = cv2.VideoCapture(path)
             self.current_video = path
 
+        if self.cap is None:
+            return
+
         ret, frame = self.cap.read()
+
         if not ret:
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = self.cap.read()
+
             if not ret:
                 return
 
@@ -102,8 +150,46 @@ class AvatarNode:
 
 
 if __name__ == "__main__":
+
     try:
-        AvatarNode()
-        rospy.spin()
+
+        node = AvatarNode()
+        rate = rospy.Rate(30)
+
+        while not rospy.is_shutdown():
+
+            gesture = node.last_payload.get(
+                "gesture",
+                "Ninguno",
+            )
+
+            emotion = node.resolve_emotion(
+                node.last_payload
+            )
+
+            key = node.get_key(
+                gesture,
+                emotion,
+            )
+
+            # Modo 1
+            if node.mode == 1:
+                node.show_image(key)
+
+            # Modo 2
+            elif node.mode == 2:
+                node.show_image(key)
+
+            # Modo 3
+            elif node.mode == 3:
+                node.play_video(key)
+
+            # Modo 4
+            elif node.mode == 4:
+                node.play_video(key)
+
+            rate.sleep()
+
     except rospy.ROSInterruptException:
         pass
+

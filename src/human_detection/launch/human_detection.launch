@@ -1,0 +1,37 @@
+<launch>
+
+    <arg name="mode" default="1" />
+    <arg name="use_voice" default="false" />
+
+    <arg name="base_path"
+         default="$(env HOME)/Escritorio/TFG/src/human_detection/media" />
+
+    <node pkg="human_detection"
+          type="ros_node.py"
+          name="human_detector"
+          output="screen">
+
+        <param name="mode" value="$(arg mode)" />
+
+    </node>
+
+    <node pkg="human_detection"
+          type="avatar_node.py"
+          name="avatar_node"
+          output="screen">
+
+        <param name="mode" value="$(arg mode)" />
+        <param name="base_path" value="$(arg base_path)" />
+
+    </node>
+
+    <group if="$(arg use_voice)">
+
+        <node pkg="human_detection"
+              type="voice_node.py"
+              name="voice_emotion_node"
+              output="screen" />
+
+    </group>
+
+</launch>

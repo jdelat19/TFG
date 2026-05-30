@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import re
-import time
 from pathlib import Path
 
 import numpy as np
@@ -226,3 +225,4 @@ if __name__ == "__main__":
         VoiceEmotionNode().run()
     except rospy.ROSInterruptException:
         pass
+
