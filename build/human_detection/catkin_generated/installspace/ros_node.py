@@ -59,6 +59,8 @@ class HumanROSNode:
                 "raw_gesture": data.get("raw_gesture", "Ninguno"),
                 "emotion": data.get("emotion", "Neutral"),
                 "confidence": data.get("confidence", 0.0),
+                "left_hand_landmarks": data.get("left_hand_landmarks", []),
+                "right_hand_landmarks": data.get("right_hand_landmarks", []),
                 "voice_emotion": self.last_voice.get("voice_emotion", "neutral"),
                 "voice_final_emotion": self.last_voice.get("final_emotion", "neutral"),
                 "text": self.last_voice.get("text", ""),

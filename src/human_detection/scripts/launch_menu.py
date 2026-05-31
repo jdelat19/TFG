@@ -5,14 +5,14 @@ import sys
 
 import sounddevice as sd
 
-# print("\n===== DISPOSITIVOS DE AUDIO =====\n")
+print("\n===== DISPOSITIVOS DE AUDIO =====\n")
 
-# for idx, dev in enumerate(sd.query_devices()):
-#     if dev["max_input_channels"] > 0:
-#         print(
-#             f"{idx}: {dev['name']} "
-#             f"(inputs={dev['max_input_channels']})"
-#         )
+for idx, dev in enumerate(sd.query_devices()):
+    if dev["max_input_channels"] > 0:
+        print(
+            f"{idx}: {dev['name']} "
+            f"(inputs={dev['max_input_channels']})"
+        )
 
 print("\n===============================\n")
 modes = {

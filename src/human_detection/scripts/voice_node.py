@@ -17,7 +17,7 @@ from transformers import (
 
 SAMPLE_RATE = 16000
 DURATION = 4
-MICROPHONE_ID = 13
+MICROPHONE_ID = 14
 LANGUAGE = "es"
 RULES_FILE = "emociones.json"
 PUBLISH_TOPIC = "/voice_emotion"

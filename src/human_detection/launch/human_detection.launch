@@ -16,8 +16,8 @@
     </node>
 
     <node pkg="human_detection"
-          type="avatar_node.py"
-          name="avatar_node"
+          type="avatar_node_3d.py"
+          name="avatar_node_3d"
           output="screen">
 
         <param name="mode" value="$(arg mode)" />

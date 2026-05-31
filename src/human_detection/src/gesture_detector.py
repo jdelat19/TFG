@@ -17,33 +17,45 @@ class GestureDetector:
         self.temporal_threshold = 7
         self.gesture_buffer = deque(maxlen=self.temporal_window)
         self.smoothed_gesture = "Ninguno"
-        
-        # Configuración de visualización
+
         self.draw_face = draw_face
         self.draw_pose = draw_pose
         self.draw_hands = draw_hands
-        
-        # Inicializar modelos
+
         self.holistic = self.mp_holistic.Holistic(
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
-        
+
         self.gestures = gestures or DEFAULT_GESTURES
         self.current_gesture = "Ninguno"
-        
-        # Detector de emociones (solo si está habilitado)
+
         self.enable_emotion_detection = enable_emotion_detection
         if enable_emotion_detection:
             self.emotion_detector = FacialExpressionDetector(min_confidence=0.6)
         else:
             self.emotion_detector = None
-        
-        # Historial para análisis
+
         self.gesture_history = []
         self.emotion_history = []
         self.frame_count = 0
-    
+
+    def landmarks_to_list(self, landmarks, image_shape):
+        if landmarks is None:
+            return []
+        h, w = image_shape
+        out = []
+        for lm in landmarks.landmark:
+            out.append({
+                "x": float(lm.x),
+                "y": float(lm.y),
+                "z": float(lm.z),
+                "px": int(lm.x * w),
+                "py": int(lm.y * h),
+                "v": float(getattr(lm, "visibility", 0.0))
+            })
+        return out
+
     def temporal_smoothing(self, detected_gesture: str) -> str:
         self.gesture_buffer.append(detected_gesture)
         
@@ -60,61 +72,53 @@ class GestureDetector:
     
     def detect_gestures(self, results, image_shape: tuple) -> list:
         detected_gestures = []
-        
+
         for gesture in self.gestures:
             try:
                 if gesture.check(results, image_shape):
                     detected_gestures.append(gesture)
             except Exception as e:
                 print(f"Error en gesto {gesture.name}: {e}")
-        
+
         if not detected_gestures:
             return []
-        
-        # Seleccionar gesto de mayor prioridad
+
         highest_priority_gesture = max(detected_gestures, key=lambda g: g.priority)
         return [highest_priority_gesture.name]
     
     def process_frame(self, image) -> Tuple[np.ndarray, dict]:
-        """Procesa un frame y retorna imagen procesada y datos"""
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.holistic.process(image_rgb)
-        
-        # Detectar gestos
+
         detected_gestures = self.detect_gestures(results, image.shape[:2])
         raw_gesture = detected_gestures[0] if detected_gestures else "Ninguno"
         self.current_gesture = self.temporal_smoothing(raw_gesture)
-        
-        # Guardar en historial
-        if self.frame_count % 5 == 0:  # Guardar cada 5 frames
+
+        if self.frame_count % 5 == 0:
             self.gesture_history.append(self.current_gesture)
-        
-        # Detectar emociones si está habilitado
+
         emotion_data = {"emotion": "Desactivado", "confidence": 0.0}
         if self.enable_emotion_detection and self.emotion_detector:
             emotion, confidence = self.emotion_detector.detect_emotion(image)
             emotion_data = {"emotion": emotion, "confidence": confidence}
-            
             if self.frame_count % 5 == 0:
                 self.emotion_history.append(emotion)
-        
-        # Dibujar landmarks
-        self._draw_landmarks(image, results)
-        
-        # Mostrar información en pantalla
-        self._display_info(image, raw_gesture, emotion_data)
-        
-        # Escalar imagen para mejor visualización
-        #image = self._resize_image(image, scale_percent=150)
-        
-        self.frame_count += 1
-        return image, {
+
+        self.draw_landmarks(image, results)
+        self.display_info(image, raw_gesture, emotion_data)
+
+        payload = {
             "gesture": self.current_gesture,
             "raw_gesture": raw_gesture,
-            **emotion_data
+            **emotion_data,
+            "left_hand_landmarks": self.landmarks_to_list(results.left_hand_landmarks, image.shape[:2]),
+            "right_hand_landmarks": self.landmarks_to_list(results.right_hand_landmarks, image.shape[:2]),
         }
+
+        self.frame_count += 1
+        return image, payload
     
-    def _display_info(self, image, raw_gesture: str, emotion_data: dict):
+    def display_info(self, image, raw_gesture: str, emotion_data: dict):
         """Mostrar información en pantalla"""
         # Gesto suavizado
         cv2.putText(image, f"Gesto: {self.current_gesture}",
@@ -133,7 +137,7 @@ class GestureDetector:
             cv2.putText(image, emotion_text, (10, y_position),
                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
     
-    def _draw_landmarks(self, image, results):
+    def draw_landmarks(self, image, results):
         """Dibujar landmarks según configuración"""
         # Cara
         if self.draw_face and results.face_landmarks:
@@ -166,7 +170,7 @@ class GestureDetector:
                     self.mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2)
                 )
     
-    def _resize_image(self, image, scale_percent=150):
+    def resize_image(self, image, scale_percent=150):
         """Redimensionar imagen para visualización"""
         width = int(image.shape[1] * scale_percent / 100)
         height = int(image.shape[0] * scale_percent / 100)
