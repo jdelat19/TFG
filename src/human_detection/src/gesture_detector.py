@@ -110,11 +110,9 @@ class GestureDetector:
     
     def display_info(self, image, emotion_data: dict):
         """Mostrar información en pantalla"""
-        # Gesto suavizado
         cv2.putText(image, f"Gesto: {self.current_gesture}",
                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 255, 0), 2)
         
-        # Emoción
         if self.enable_emotion_detection:
             y_position = 100
             emotion_text = f"Emocion: {emotion_data['emotion']}"
@@ -125,7 +123,6 @@ class GestureDetector:
     
     def draw_landmarks(self, image, results):
         """Dibujar landmarks según configuración"""
-        # Cara
         if self.draw_face and results.face_landmarks:
             self.mp_drawing.draw_landmarks(
                 image, results.face_landmarks, self.mp_holistic.FACEMESH_CONTOURS,
@@ -133,7 +130,6 @@ class GestureDetector:
                 self.mp_drawing.DrawingSpec(color=(80, 256, 121), thickness=1, circle_radius=1)
             )
         
-        # Cuerpo
         if self.draw_pose and results.pose_landmarks:
             self.mp_drawing.draw_landmarks(
                 image, results.pose_landmarks, self.mp_holistic.POSE_CONNECTIONS,
@@ -141,7 +137,6 @@ class GestureDetector:
                 self.mp_drawing.DrawingSpec(color=(80, 44, 121), thickness=2, circle_radius=2)
             )
         
-        # Manos
         if self.draw_hands:
             if results.left_hand_landmarks:
                 self.mp_drawing.draw_landmarks(
