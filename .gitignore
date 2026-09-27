@@ -1,0 +1,13 @@
+# Generado por catkin_make
+build/
+devel/
+install/
+
+# Python
+__pycache__/
+*.pyc
+
+# Editores
+.vscode/
+.idea/
+*.swp
