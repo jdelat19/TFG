@@ -32,7 +32,7 @@ class GestureDetector:
 
         self.enable_emotion_detection = enable_emotion_detection
         if enable_emotion_detection:
-            self.emotion_detector = FacialExpressionDetector(min_confidence=0.6)
+            self.emotion_detector = FacialExpressionDetector()
         else:
             self.emotion_detector = None
 

@@ -10,10 +10,12 @@ except ImportError:
     FER_AVAILABLE = False
 
 class FacialExpressionDetector:
-    def __init__(self, min_confidence=0.6, buffer_size=15, stability_threshold=10):
+    """Emoción facial con FER, suavizada promediando las probabilidades de
+    los últimos `buffer_size` fotogramas con cara."""
+
+    def __init__(self, min_confidence=0.4, buffer_size=6):
         self.min_confidence = min_confidence
         self.emotion_buffer = deque(maxlen=buffer_size)
-        self.stability_threshold = stability_threshold
         self.last_emotion = "Neutral"
         self.no_face_counter = 0
 
@@ -43,18 +45,17 @@ class FacialExpressionDetector:
 
             if result:
                 self.no_face_counter = 0
-                emotions = result[0]["emotions"]
-                dominant_emotion = max(emotions, key=emotions.get)
-                confidence = emotions[dominant_emotion]
-                emotion = self.emotion_map.get(dominant_emotion, dominant_emotion)
+                self.emotion_buffer.append(result[0]["emotions"])
+
+                averaged = Counter()
+                for emotions in self.emotion_buffer:
+                    averaged.update(emotions)
+                dominant_emotion, total = averaged.most_common(1)[0]
+                confidence = total / len(self.emotion_buffer)
 
                 if confidence >= self.min_confidence:
-                    self.emotion_buffer.append(emotion)
-                    if len(self.emotion_buffer) >= self.emotion_buffer.maxlen:
-                        most_common = Counter(self.emotion_buffer).most_common(1)[0]
-                        if most_common[1] >= self.stability_threshold:
-                            self.last_emotion = most_common[0]
-                            return self.last_emotion, confidence
+                    self.last_emotion = self.emotion_map.get(dominant_emotion, dominant_emotion)
+                    return self.last_emotion, confidence
             else:
                 self.no_face_counter += 1
                 if self.no_face_counter > 30:
