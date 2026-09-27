@@ -91,6 +91,7 @@ class VoiceEmotionNode:
         self.voice_model.to(self.device)
         self.voice_model.eval()
 
+        self.microphone = rospy.get_param("~microphone", MICROPHONE_ID)
         self.rate = rospy.Rate(1.0 / max(DURATION, 1))
         rospy.loginfo("VoiceEmotionNode listo")
 
@@ -100,7 +101,7 @@ class VoiceEmotionNode:
             samplerate=SAMPLE_RATE,
             channels=1,
             dtype="float32",
-            device=MICROPHONE_ID,
+            device=self.microphone,
         )
         sd.wait()
         return np.squeeze(audio).astype(np.float32)
