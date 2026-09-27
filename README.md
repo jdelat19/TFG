@@ -54,6 +54,17 @@ TFG/                                  # Workspace de catkin (ROS Noetic)
 - Pulgar hacia arriba
 - Señalar
 - Seña de paz
+
+### Gestos por Forma de la Mano
+Se calcula qué dedos están extendidos comparando distancias a la muñeca,
+así que funcionan aunque la mano esté girada.
+- Puño
+- Mano abierta
+- Saludar (mano abierta moviéndose de lado a lado)
+- OK
+- Cuernos
+- Llámame
+- Pulgar hacia abajo
 ```
 | Índice | Parte del cuerpo         |
 | ------ | ------------------------ |
