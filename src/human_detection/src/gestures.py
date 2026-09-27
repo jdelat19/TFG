@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import deque
 
 from utils import calculate_distance, get_landmark_coords
 
@@ -304,6 +305,153 @@ class HandsOnHipsGesture(BaseGesture):
         return calculate_distance(lw, lh) < 100 and calculate_distance(rw, rh) < 100
 
 # =============================================================================
+# GESTOS POR FORMA DE LA MANO
+# =============================================================================
+# Índices de la mano en MediaPipe: 0 muñeca, pulgar 1-4, índice 5-8,
+# corazón 9-12, anular 13-16, meñique 17-20 (MCP, PIP, DIP, punta).
+# Se comparan distancias entre landmarks, así que no depende de si la mano
+# está girada.
+
+FINGERS = {"index": (6, 8), "middle": (10, 12), "ring": (14, 16), "pinky": (18, 20)}
+
+
+def hand_points(hand_landmarks, image_shape):
+    """Los 21 puntos de la mano en píxeles, o None si falta alguno."""
+    if not hand_landmarks:
+        return None
+    pts = [get_landmark_coords(hand_landmarks, i, image_shape) for i in range(21)]
+    return pts if all(pts) else None
+
+
+def hand_size(pts):
+    """Distancia muñeca - base del dedo corazón, sirve de escala de la mano."""
+    return max(calculate_distance(pts[0], pts[9]), 1.0)
+
+
+def finger_states(pts):
+    """Qué dedos están extendidos.
+
+    Un dedo está extendido si su punta está más lejos de la muñeca que su
+    articulación central. El pulgar, si su punta está más lejos de la base
+    del meñique que su articulación IP.
+    """
+    states = {
+        name: calculate_distance(pts[0], pts[tip]) > 1.1 * calculate_distance(pts[0], pts[pip])
+        for name, (pip, tip) in FINGERS.items()
+    }
+    states["thumb"] = calculate_distance(pts[4], pts[17]) > 1.1 * calculate_distance(pts[3], pts[17])
+    return states
+
+
+class HandShapeGesture(BaseGesture):
+    """Gesto que depende solo de la forma de una mano (cualquiera de las dos)."""
+
+    def __init__(self, name, confidence_threshold=0.6, priority=3):
+        super().__init__(name, confidence_threshold)
+        self.priority = priority
+
+    def check(self, results, image_shape):
+        for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
+            pts = hand_points(hand_landmarks, image_shape)
+            if pts and self.check_hand(pts, finger_states(pts)):
+                return True
+        return False
+
+    def check_hand(self, pts, fingers):
+        raise NotImplementedError
+
+
+class FistGesture(HandShapeGesture):
+    def __init__(self):
+        super().__init__("puño", priority=2)
+
+    def check_hand(self, pts, fingers):
+        return not any(fingers.values())
+
+
+class OpenHandGesture(HandShapeGesture):
+    def __init__(self):
+        super().__init__("mano_abierta", priority=2)
+
+    def check_hand(self, pts, fingers):
+        return all(fingers.values())
+
+
+class OkGesture(HandShapeGesture):
+    def __init__(self):
+        super().__init__("ok")
+
+    def check_hand(self, pts, fingers):
+        thumb_index_touch = calculate_distance(pts[4], pts[8]) < 0.35 * hand_size(pts)
+        return thumb_index_touch and fingers["middle"] and fingers["ring"] and fingers["pinky"]
+
+
+class RockGesture(HandShapeGesture):
+    def __init__(self):
+        super().__init__("cuernos")
+
+    def check_hand(self, pts, fingers):
+        return (fingers["index"] and fingers["pinky"]
+                and not fingers["middle"] and not fingers["ring"])
+
+
+class CallMeGesture(HandShapeGesture):
+    def __init__(self):
+        super().__init__("llamame")
+
+    def check_hand(self, pts, fingers):
+        return (fingers["thumb"] and fingers["pinky"]
+                and not fingers["index"] and not fingers["middle"] and not fingers["ring"])
+
+
+class ThumbsDownGesture(HandShapeGesture):
+    def __init__(self):
+        super().__init__("pulgar_abajo")
+
+    def check_hand(self, pts, fingers):
+        others_folded = not any(fingers[f] for f in FINGERS)
+        # En la imagen la y crece hacia abajo
+        lowest_knuckle = max(pts[i][1] for i in (5, 9, 13, 17))
+        thumb_down = pts[4][1] > lowest_knuckle + 0.3 * hand_size(pts) and pts[4][1] > pts[3][1]
+        return fingers["thumb"] and others_folded and thumb_down
+
+
+class WaveGesture(BaseGesture):
+    """Mano abierta moviéndose de lado a lado."""
+
+    def __init__(self, history=20):
+        super().__init__("saludar", 0.6)
+        self.priority = 4
+        self.wrist_x = {"left": deque(maxlen=history), "right": deque(maxlen=history)}
+
+    def check(self, results, image_shape):
+        waving = False
+        for side, hand_landmarks in [("left", results.left_hand_landmarks),
+                                     ("right", results.right_hand_landmarks)]:
+            pts = hand_points(hand_landmarks, image_shape)
+            if not pts or not all(finger_states(pts).values()):
+                self.wrist_x[side].clear()
+                continue
+            self.wrist_x[side].append(pts[0][0])
+            waving = waving or self.is_waving(self.wrist_x[side], hand_size(pts))
+        return waving
+
+    @staticmethod
+    def is_waving(xs, size):
+        if len(xs) < 10 or max(xs) - min(xs) < 0.8 * size:
+            return False
+        # Contar cambios de sentido, ignorando movimientos pequeños
+        direction_changes, last_sign = 0, 0
+        for a, b in zip(xs, list(xs)[1:]):
+            if abs(b - a) < 0.1 * size:
+                continue
+            sign = 1 if b > a else -1
+            if last_sign and sign != last_sign:
+                direction_changes += 1
+            last_sign = sign
+        return direction_changes >= 2
+
+# =============================================================================
 # LISTA DE TODOS LOS GESTOS DISPONIBLES
 # =============================================================================
 
@@ -327,4 +475,13 @@ DEFAULT_GESTURES = [
     ThumbsUpGesture(),
     PointingGesture(),
     PeaceSignGesture(),
+
+    # Gestos por forma de la mano
+    FistGesture(),
+    OpenHandGesture(),
+    WaveGesture(),
+    OkGesture(),
+    RockGesture(),
+    CallMeGesture(),
+    ThumbsDownGesture(),
 ]
