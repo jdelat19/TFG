@@ -7,20 +7,39 @@ La idea es capturar el video, detectar los puntos clave del cuerpo (llamados lan
  
 ## Estructura
 ```
-TFG/
-│
-├── main.py               # Script principal: captura video y muestra detección
-├── gestures.py           # Núcleo del reconocimiento.
-├── gesture_detector.py   # Clase que gestiona la detección con MediaPipe
-├── utils.py              # Funciones auxiliares (coordenadas, distancia, etc.)
+TFG/                                  # Workspace de catkin (ROS Noetic)
+├── Deprecated/                       # Versión anterior sin ROS
+├── Img/                              # Capturas de gestos y emociones
+└── src/human_detection/              # Paquete ROS
+    ├── launch/
+    │   ├── human_detection.launch    # Detección + avatar (+ voz)
+    │   ├── turtlebot_emotion.launch  # Detección + comportamiento del TurtleBot
+    │   └── turtlebot_sim.launch      # Gazebo con TurtleBot3, mesa y persona
+    ├── scripts/                      # Nodos ROS
+    │   ├── ros_node.py               # Cámara -> gestos y emoción facial (/human_state)
+    │   ├── voice_node.py             # Micrófono -> emoción por voz (/voice_emotion)
+    │   ├── avatar_node.py            # Avatar 2D (imágenes / vídeos)
+    │   ├── avatar_node_3d.py         # Avatar 3D con las manos de MediaPipe
+    │   ├── turtlebot_emotion_node.py # TurtleBot que reacciona a la emoción
+    │   ├── launch_menu.py            # Menú para elegir modo
+    │   └── emociones.json            # Frases clave por emoción para la voz
+    ├── src/                          # Módulos
+    │   ├── gesture_detector.py       # Detección con MediaPipe Holistic
+    │   ├── gestures.py               # Reglas de cada gesto
+    │   ├── facial_expression.py      # Emoción facial con FER
+    │   ├── scan_utils.py             # Procesado del lidar (patas de mesa, etc.)
+    │   └── utils.py                  # Coordenadas y distancias
+    ├── media/                        # Imágenes, vídeos y modelos 3D del avatar
+    ├── worlds/                       # Mundo de Gazebo
+    └── test/                         # Tests (python3 -m pytest test/)
 ```
 
 ## Gestos
 ### Gestos Corporales
 - Brazos cruzados
 - Brazos abiertos
+- Manos en las caderas
 - Manos juntas
-- Sacudir la pierna
 
 ### Gestos de Manos y Cara
 - Rascarse el cuello
@@ -35,7 +54,6 @@ TFG/
 - Pulgar hacia arriba
 - Señalar
 - Seña de paz
-- Manos juntas (oración)
 ```
 | Índice | Parte del cuerpo         |
 | ------ | ------------------------ |
