@@ -1,0 +1,26 @@
+<launch>
+    <!-- Detección de emociones + comportamiento del TurtleBot -->
+    <arg name="use_camera" default="true" />
+    <arg name="use_voice" default="false" />
+    <arg name="sim" default="false" />
+
+    <param name="use_sim_time" value="$(arg sim)" />
+
+    <group if="$(arg use_camera)">
+        <node pkg="human_detection" type="ros_node.py" name="human_detector" output="screen">
+            <param name="mode" value="1" />
+        </node>
+    </group>
+
+    <group if="$(arg use_voice)">
+        <node pkg="human_detection" type="voice_node.py" name="voice_emotion_node" output="screen" />
+    </group>
+
+    <node pkg="human_detection" type="turtlebot_emotion_node.py" name="turtlebot_emotion_node" output="screen">
+        <param name="max_linear" value="0.18" />
+        <param name="approach_distance" value="0.5" />
+        <param name="comfort_distance" value="0.8" />
+        <param name="retreat_distance" value="1.5" />
+        <param name="person_initial_distance" value="1.0" />
+    </node>
+</launch>
