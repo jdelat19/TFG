@@ -239,8 +239,23 @@ EMOTIONS = [
 ]
 
 
+def stop_group(proc, name):
+    """Para con Ctrl+C un proceso lanzado con start_new_session y sus hijos."""
+    if proc is None or proc.poll() is not None:
+        return
+    print(dim(f"\n  Cerrando {name}..."))
+    os.killpg(proc.pid, signal.SIGINT)
+    try:
+        proc.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+
+
 def run_turtlebot_sim_manual():
-    """Gazebo en segundo plano y un panel para mandar emociones."""
+    """Gazebo en segundo plano y un panel para mandar emociones.
+
+    La cámara solo se abre si se elige "cámara" en el panel.
+    """
     if ros_already_running():
         return
     os.makedirs(os.path.dirname(SIM_LOG), exist_ok=True)
@@ -249,6 +264,13 @@ def run_turtlebot_sim_manual():
         ["roslaunch", "human_detection", "turtlebot_emotion.launch",
          "gazebo:=true", "use_camera:=false"],
         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    camera = {"proc": None}
+
+    def start_camera():
+        if camera["proc"] is None or camera["proc"].poll() is not None:
+            camera["proc"] = subprocess.Popen(
+                ["rosrun", "human_detection", "ros_node.py"],
+                stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
 
     try:
         import rosgraph
@@ -265,43 +287,47 @@ def run_turtlebot_sim_manual():
 
         rospy.init_node("launch_menu", anonymous=True, disable_signals=True)
         pub = rospy.Publisher("/emotion_override", String, queue_size=1, latch=True)
-        emotion_panel(pub, proc)
+        emotion_panel(pub, proc, start_camera, lambda: camera["proc"])
         if proc.poll() not in (None, 0):
             pause(red(f"\n  roslaunch ha terminado con error. Mira el log: {SIM_LOG}"))
     except KeyboardInterrupt:
         pass
     finally:
-        if proc.poll() is None:
-            clear()
-            print(dim("\n  Cerrando Gazebo..."))
-            os.killpg(proc.pid, signal.SIGINT)
-            try:
-                proc.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
+        clear()
+        stop_group(camera["proc"], "la cámara")
+        stop_group(proc, "Gazebo")
         log.close()
 
 
-def emotion_panel(pub, proc):
+def emotion_panel(pub, proc, start_camera, camera_proc):
     from std_msgs.msg import String
 
     entries = [option(name, action, name) for name, action in EMOTIONS]
     entries += [section(""),
-                option("auto", "vuelve a usar cámara/voz", "auto"),
+                option("cámara", "abre la cámara y usa la emoción detectada", "auto"),
                 option("Salir", "cierra Gazebo", None)]
     last = None
     time.sleep(1.0)  # dar tiempo a que roslaunch falle si algo va mal
     while proc.poll() is None:
-        if last:
+        cam = camera_proc()
+        if last == "auto":
+            footer = green("  ● Usando la emoción de la cámara")
+        elif last:
             footer = green(f"  ● Enviado: {last}")
         else:
             footer = dim("  Todavía no se ha enviado ninguna emoción")
+        if cam is not None and cam.poll() is not None:
+            footer += red("\n  La cámara se ha cerrado (mira el log)")
+        elif cam is not None:
+            footer += dim("\n  Cámara abierta (se cierra al salir)")
         footer += dim(f"\n  Log de ROS: {SIM_LOG}")
 
         value = choose("Emociones para el TurtleBot", "Gazebo en marcha", entries,
                        selected=last or "feliz", footer=footer)
         if value is None:
             return
+        if value == "auto":
+            start_camera()
         pub.publish(String(data=value))
         last = value
 
