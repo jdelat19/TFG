@@ -90,7 +90,6 @@ class ScratchNeckGesture(BaseGesture):
                         return True
         return False
 
-# Morderse las uñas
 class BiteNailsGesture(BaseGesture):
     def __init__(self):
         super().__init__("morderse_unas", 0.8)
@@ -118,7 +117,6 @@ class BiteNailsGesture(BaseGesture):
 
         finger_tips = [4, 8, 12, 16, 20]
 
-        # Comprobar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if not hand_landmarks:
                 continue
@@ -135,7 +133,6 @@ class BiteNailsGesture(BaseGesture):
         return False
 
 
-# Manos en la cara
 class HandsFaceGesture(BaseGesture):
     def __init__(self):
         super().__init__("manos_en_cara", 0.6)
@@ -145,7 +142,6 @@ class HandsFaceGesture(BaseGesture):
         if not results.face_landmarks:
             return False
 
-        # Tomar algunos landmarks de referencia de la cara
         face_points_ids = [10, 152, 234, 454]  # frente, mentón, mejillas
         face_coords = [get_landmark_coords(results.face_landmarks, idx, image_shape)
                        for idx in face_points_ids]
@@ -153,13 +149,11 @@ class HandsFaceGesture(BaseGesture):
         if not all(face_coords):
             return False
 
-        # Definir rectángulo de la cara
         x_coords = [pt[0] for pt in face_coords]
         y_coords = [pt[1] for pt in face_coords]
         left, right = min(x_coords) - 20, max(x_coords) + 20
         top, bottom = min(y_coords) - 20, max(y_coords) + 20
 
-        # Verificar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 for idx in [0, 8]:  # muñeca y punta índice
@@ -182,7 +176,6 @@ class TouchHeadGesture(BaseGesture):
         if not head_top:
             return False
         
-        # Verificar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 wrist = get_landmark_coords(hand_landmarks, 0, image_shape)
@@ -220,7 +213,6 @@ class ThumbsUpGesture(BaseGesture):
         super().__init__("pulgar_arriba", 0.7)
     
     def check(self, results, image_shape):
-        # Verificar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 thumb_tip = get_landmark_coords(hand_landmarks, 4, image_shape)
@@ -243,7 +235,6 @@ class PointingGesture(BaseGesture):
         super().__init__("señalar", 0.6)
     
     def check(self, results, image_shape):
-        # Verificar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 index_tip = get_landmark_coords(hand_landmarks, 8, image_shape)
@@ -265,7 +256,6 @@ class PeaceSignGesture(BaseGesture):
         super().__init__("paz", 0.7)
     
     def check(self, results, image_shape):
-        # Verificar ambas manos
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 index_tip = get_landmark_coords(hand_landmarks, 8, image_shape)

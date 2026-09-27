@@ -30,7 +30,7 @@ def load_rules(filepath):
         path = script_dir / filepath
 
     if not path.exists():
-        print(f"⚠️ No existe el fichero: {path}")
+        print(f"No existe el fichero: {path}")
         return {}
 
     try:
@@ -38,7 +38,7 @@ def load_rules(filepath):
             data = json.load(f)
 
         if not isinstance(data, dict):
-            print(f"⚠️ JSON inválido: se esperaba un objeto/dict y llegó {type(data)}")
+            print(f"JSON inválido: se esperaba un objeto/dict y llegó {type(data)}")
             return {}
 
         return {
@@ -48,7 +48,7 @@ def load_rules(filepath):
         }
 
     except json.JSONDecodeError as e:
-        print(f"❌ Error JSON en {path}: {e}")
+        print(f"Error JSON en {path}: {e}")
         return {}
 
 
