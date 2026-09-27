@@ -1,8 +1,6 @@
-import math
-import numpy as np
 from abc import ABC, abstractmethod
+
 from utils import calculate_distance, get_landmark_coords
-from collections import deque
 
 class BaseGesture(ABC):
     def __init__(self, name: str, confidence_threshold: float = 0.5):
@@ -62,27 +60,8 @@ class OpenArmsGesture(BaseGesture):
         
         return left_arm_extended and right_arm_extended and hands_above_waist
 
-class HandsTogetherGesture(BaseGesture):
-    def __init__(self):
-        super().__init__("manos_juntas", 0.6)
-        self.priority = 2
-    
-    def check(self, results, image_shape):
-        left_wrist = get_landmark_coords(results.pose_landmarks, 15, image_shape)
-        right_wrist = get_landmark_coords(results.pose_landmarks, 16, image_shape)
-        left_elbow = get_landmark_coords(results.pose_landmarks, 13, image_shape)
-        right_elbow = get_landmark_coords(results.pose_landmarks, 14, image_shape)
-
-        if not all([left_wrist, right_wrist, left_elbow, right_elbow]):
-            return False
-
-        # Manos juntas pero no cruzadas
-        wrists_close = calculate_distance(left_wrist, right_wrist) < 100
-        elbows_close = calculate_distance(left_elbow, right_elbow) < 150
-        return wrists_close and elbows_close
-
 # =============================================================================
-# GESTOS DE MANOS Y CARA - CORREGIDOS
+# GESTOS DE MANOS Y CARA
 # =============================================================================
 
 class ScratchNeckGesture(BaseGesture):
@@ -137,7 +116,6 @@ class BiteNailsGesture(BaseGesture):
         left, right = min(xs) - 10, max(xs) + 10
         top, bottom = min(ys) - 10, max(ys) + 10
 
-        # 👉 AQUÍ VA
         finger_tips = [4, 8, 12, 16, 20]
 
         # Comprobar ambas manos
@@ -234,7 +212,7 @@ class HeadTiltGesture(BaseGesture):
         return eye_slope > 0.3
 
 # =============================================================================
-# GESTOS PERSONALIZADOS - MEJORADOS PARA AMBAS MANOS
+# GESTOS PERSONALIZADOS
 # =============================================================================
 
 class ThumbsUpGesture(BaseGesture):
@@ -322,39 +300,6 @@ class HandsTogetherGesture(BaseGesture):
         
         return False
     
-class LegShakeGesture(BaseGesture):
-    def __init__(self):
-        super().__init__("piernas_inquietas", 0.6)
-        from collections import deque
-        self.left_foot_y = deque(maxlen=20)
-        self.right_foot_y = deque(maxlen=20)
-        self.last_state = False
-
-    def check(self, results, image_shape):
-        left_foot = get_landmark_coords(results.pose_landmarks, 27, image_shape)
-        right_foot = get_landmark_coords(results.pose_landmarks, 28, image_shape)
-
-        if left_foot:
-            self.left_foot_y.append(left_foot[1])
-        if right_foot:
-            self.right_foot_y.append(right_foot[1])
-
-        if len(self.left_foot_y) < 10 and len(self.right_foot_y) < 10:
-            return False
-
-        def detect_shake(positions):
-            if len(positions) < 10:
-                return False
-            avg = np.mean(positions)
-            amp = max(positions) - min(positions)
-            return amp > 30 and np.std(positions) > 10  # más sensible
-
-        left_moving = detect_shake(self.left_foot_y)
-        right_moving = detect_shake(self.right_foot_y)
-
-        self.last_state = left_moving or right_moving
-        return self.last_state
-    
 class HandsOnHipsGesture(BaseGesture):
     def __init__(self):
         super().__init__("manos_en_caderas", 0.6)
@@ -379,7 +324,7 @@ DEFAULT_GESTURES = [
     HandsOnHipsGesture(),
     HandsTogetherGesture(),
     
-    # Gestos de manos y cara - CORREGIDOS
+    # Gestos de manos y cara
     ScratchNeckGesture(),
     BiteNailsGesture(),
     HandsFaceGesture(),
@@ -388,10 +333,8 @@ DEFAULT_GESTURES = [
     # Gestos faciales
     HeadTiltGesture(),
     
-    # Gestos personalizados - MEJORADOS
+    # Gestos personalizados
     ThumbsUpGesture(),
     PointingGesture(),
     PeaceSignGesture(),
-
-    #LegShakeGesture(),
 ]
