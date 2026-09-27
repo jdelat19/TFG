@@ -2,6 +2,7 @@
 
     <arg name="mode" default="1" />
     <arg name="use_voice" default="false" />
+    <arg name="microphone" default="14" />
 
     <arg name="base_path"
          default="$(env HOME)/Escritorio/TFG/src/human_detection/media" />
@@ -30,7 +31,9 @@
         <node pkg="human_detection"
               type="voice_node.py"
               name="voice_emotion_node"
-              output="screen" />
+              output="screen">
+            <param name="microphone" value="$(arg microphone)" />
+        </node>
 
     </group>
 

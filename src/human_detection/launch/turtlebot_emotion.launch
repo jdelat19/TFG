@@ -2,9 +2,14 @@
     <!-- Detección de emociones + comportamiento del TurtleBot -->
     <arg name="use_camera" default="true" />
     <arg name="use_voice" default="false" />
+    <arg name="microphone" default="14" />
     <arg name="sim" default="false" />
+    <!-- Arranca también Gazebo (implica sim) -->
+    <arg name="gazebo" default="false" />
 
-    <param name="use_sim_time" value="$(arg sim)" />
+    <param name="use_sim_time" value="$(eval arg('sim') or arg('gazebo'))" />
+
+    <include if="$(arg gazebo)" file="$(find human_detection)/launch/turtlebot_sim.launch" />
 
     <group if="$(arg use_camera)">
         <node pkg="human_detection" type="ros_node.py" name="human_detector" output="screen">
@@ -13,7 +18,9 @@
     </group>
 
     <group if="$(arg use_voice)">
-        <node pkg="human_detection" type="voice_node.py" name="voice_emotion_node" output="screen" />
+        <node pkg="human_detection" type="voice_node.py" name="voice_emotion_node" output="screen">
+            <param name="microphone" value="$(arg microphone)" />
+        </node>
     </group>
 
     <node pkg="human_detection" type="turtlebot_emotion_node.py" name="turtlebot_emotion_node" output="screen">
