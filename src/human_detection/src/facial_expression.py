@@ -11,11 +11,18 @@ except ImportError:
 
 class FacialExpressionDetector:
     """Emoción facial con FER, suavizada promediando las probabilidades de
-    los últimos `buffer_size` fotogramas con cara."""
+    los últimos `buffer_size` fotogramas con cara.
 
-    def __init__(self, min_confidence=0.4, buffer_size=6):
+    Solo se acepta una emoción si su probabilidad media llega a
+    `min_confidence` y supera a la segunda en al menos `min_margin`; si no
+    hay un ganador claro, la cara se considera neutral.
+    """
+
+    def __init__(self, min_confidence=0.45, min_margin=0.15, buffer_size=6):
         self.min_confidence = min_confidence
+        self.min_margin = min_margin
         self.emotion_buffer = deque(maxlen=buffer_size)
+        self.probabilities = {}  # probabilidades medias, para mostrarlas en pantalla
         self.last_emotion = "Neutral"
         self.no_face_counter = 0
 
@@ -50,16 +57,21 @@ class FacialExpressionDetector:
                 averaged = Counter()
                 for emotions in self.emotion_buffer:
                     averaged.update(emotions)
-                dominant_emotion, total = averaged.most_common(1)[0]
-                confidence = total / len(self.emotion_buffer)
+                n = len(self.emotion_buffer)
+                self.probabilities = {self.emotion_map.get(e, e): p / n for e, p in averaged.items()}
+                (top, top_p), (_, second_p) = sorted(
+                    self.probabilities.items(), key=lambda kv: kv[1], reverse=True)[:2]
 
-                if confidence >= self.min_confidence:
-                    self.last_emotion = self.emotion_map.get(dominant_emotion, dominant_emotion)
-                    return self.last_emotion, confidence
+                if top_p >= self.min_confidence and top_p - second_p >= self.min_margin:
+                    self.last_emotion = top
+                else:
+                    self.last_emotion = "Neutral"
+                return self.last_emotion, top_p
             else:
                 self.no_face_counter += 1
                 if self.no_face_counter > 30:
                     self.emotion_buffer.clear()
+                    self.probabilities = {}
                     self.last_emotion = "No detectado"
 
         except Exception as e:
