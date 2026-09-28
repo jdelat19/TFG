@@ -36,7 +36,12 @@ def test_mode_4_uses_gesture_video():
 
 def test_mode_4_falls_back_to_emotion_then_default():
     assert name(media_path(MEDIA, 4, {"emotion": "Feliz", "gesture": "paz"})[0]) == "feliz.mp4"
-    assert name(media_path(MEDIA, 4, {"emotion": "Disgusto", "gesture": "Ninguno"})[0]) == "no detectado.mp4"
+    # En el modo 4 la emoción facial está desactivada
+    assert name(media_path(MEDIA, 4, {"emotion": "Desactivado", "gesture": "Ninguno"})[0]) == "no detectado.mp4"
+
+
+def test_disgust_video_exists():
+    assert name(media_path(MEDIA, 3, {"emotion": "Disgusto"})[0]) == "disgusto.mp4"
 
 
 def test_missing_image_uses_default():
