@@ -125,13 +125,12 @@ class VoiceEmotionNode:
         label = self.voice_model.config.id2label[top_idx].lower()
         score = float(probs[top_idx])
 
+        # Clases del modelo (IEMOCAP): neutral, alegría, enfado y tristeza
         label_map = {
             "neu": "neutral",
             "ang": "enojo",
             "hap": "feliz",
             "sad": "triste",
-            "fea": "miedo",
-            "dis": "enojo",
         }
 
         return label_map.get(label, label), score
@@ -145,14 +144,13 @@ class VoiceEmotionNode:
         scores = sorted(scores, key=lambda x: x["score"], reverse=True)
         top = scores[0]
 
+        # Clases del modelo (TweetEval): anger, joy, optimism y sadness.
+        # "optimism" no corresponde a ninguna emoción del sistema: neutral.
         mapping = {
             "anger": "enojo",
             "joy": "feliz",
-            "surprise": "sorpresa",
             "sadness": "triste",
-            "fear": "miedo",
-            "neutral": "neutral",
-            "disgust": "enojo",
+            "optimism": "neutral",
         }
         return mapping.get(top["label"].lower(), "neutral"), float(top["score"]), scores
 
