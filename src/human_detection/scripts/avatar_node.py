@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import json
 import os
+import sys
 
 import cv2
 import rospy
 from std_msgs.msg import String
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+from avatar_media import media_path
 
 
 HAND_CONNECTIONS = [
@@ -45,26 +49,6 @@ class AvatarNode:
         except Exception:
             pass
 
-    def resolve_emotion(self, data):
-        face_emotion = (data.get("emotion") or "neutral").lower()
-        voice_emotion = (data.get("voice_final_emotion") or "").lower()
-
-        if self.mode == 1:
-            return face_emotion
-        if self.mode in [2, 3]:
-            return voice_emotion if voice_emotion and voice_emotion != "neutral" else face_emotion
-        if self.mode == 4:
-            return face_emotion
-        return face_emotion
-
-    def get_key(self, gesture, emotion):
-        gesture = (gesture or "Ninguno").lower()
-        emotion = (emotion or "neutral").lower()
-
-        if self.mode in [1, 2, 3]:
-            return emotion
-        return f"{gesture}_{emotion}"
-
     def draw_hand_overlay(self, canvas, hand_landmarks, color_points, color_lines,
                       scale=0.85, x_offset=300, y_offset=-20):
         if not hand_landmarks:
@@ -85,11 +69,7 @@ class AvatarNode:
 
         return canvas
 
-    def show_image(self, key, payload):
-        path = os.path.join(self.base_path, "imagenes", f"{key}.png")
-        if not os.path.exists(path):
-            path = os.path.join(self.base_path, "imagenes", "no detectado.png")
-
+    def show_image(self, path, payload):
         img = cv2.imread(path)
         if img is None:
             return
@@ -100,11 +80,7 @@ class AvatarNode:
         cv2.imshow("Avatar", img)
         cv2.waitKey(1)
 
-    def play_video(self, key, payload):
-        path = os.path.join(self.base_path, "videos", f"{key}.mp4")
-        if not os.path.exists(path):
-            path = os.path.join(self.base_path, "videos", "no detectado.mp4")
-
+    def play_video(self, path, payload):
         if self.current_video != path:
             if self.cap:
                 self.cap.release()
@@ -135,14 +111,14 @@ if __name__ == "__main__":
 
         while not rospy.is_shutdown():
             payload = node.last_payload
-            gesture = payload.get("gesture", "Ninguno")
-            emotion = node.resolve_emotion(payload)
-            key = node.get_key(gesture, emotion)
+            path, is_image = media_path(node.base_path, node.mode, payload)
 
-            if node.mode in [1, 2]:
-                node.show_image(key, payload)
+            if path is None:
+                rospy.logwarn_throttle(5, f"No hay imágenes ni vídeos en {node.base_path}")
+            elif is_image:
+                node.show_image(path, payload)
             else:
-                node.play_video(key, payload)
+                node.play_video(path, payload)
 
             rate.sleep()
 
