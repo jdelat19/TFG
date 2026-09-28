@@ -188,7 +188,7 @@ class TurtlebotEmotionNode:
         if self.behavior == "hide" and self.st.get("phase") in ("enter", "hidden"):
             self.exit_from = self.pose
         self.behavior = new_behavior
-        self.st = {"start": rospy.get_time()}
+        self.st = {}
 
     # ------------------------------------------------------------------
     # Utilidades de movimiento

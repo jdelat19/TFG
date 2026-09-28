@@ -4,17 +4,14 @@ from collections import deque
 from utils import calculate_distance, get_landmark_coords
 
 class BaseGesture(ABC):
-    def __init__(self, name: str, confidence_threshold: float = 0.5):
+    def __init__(self, name: str):
         self.name = name
-        self.confidence_threshold = confidence_threshold
         self.priority = 1
         
     @abstractmethod
     def check(self, results, image_shape: tuple) -> bool:
         pass
-    
-    def __str__(self):
-        return self.name
+
 
 # =============================================================================
 # GESTOS CORPORALES
@@ -22,7 +19,7 @@ class BaseGesture(ABC):
 
 class CrossedArmsGesture(BaseGesture):
     def __init__(self):
-        super().__init__("cruzar_brazos", 0.6)
+        super().__init__("cruzar_brazos")
         self.priority = 4
     
     def check(self, results, image_shape):
@@ -42,7 +39,7 @@ class CrossedArmsGesture(BaseGesture):
 
 class OpenArmsGesture(BaseGesture):
     def __init__(self):
-        super().__init__("brazos_abiertos", 0.5)
+        super().__init__("brazos_abiertos")
     
     def check(self, results, image_shape):
         left_wrist = get_landmark_coords(results.pose_landmarks, 15, image_shape)
@@ -67,7 +64,7 @@ class OpenArmsGesture(BaseGesture):
 
 class ScratchNeckGesture(BaseGesture):
     def __init__(self):
-        super().__init__("rascarse_cuello", 0.7)
+        super().__init__("rascarse_cuello")
         self.priority = 6
     
     def check(self, results, image_shape):
@@ -93,7 +90,7 @@ class ScratchNeckGesture(BaseGesture):
 
 class BiteNailsGesture(BaseGesture):
     def __init__(self):
-        super().__init__("morderse_unas", 0.8)
+        super().__init__("morderse_unas")
         self.priority = 9
 
     def check(self, results, image_shape):
@@ -136,7 +133,7 @@ class BiteNailsGesture(BaseGesture):
 
 class HandsFaceGesture(BaseGesture):
     def __init__(self):
-        super().__init__("manos_en_cara", 0.6)
+        super().__init__("manos_en_cara")
         self.priority = 6
     
     def check(self, results, image_shape):
@@ -168,7 +165,7 @@ class HandsFaceGesture(BaseGesture):
 
 class TouchHeadGesture(BaseGesture):
     def __init__(self):
-        super().__init__("tocarse_cabeza", 0.6)
+        super().__init__("tocarse_cabeza")
         self.priority = 5
 
     def check(self, results, image_shape):
@@ -191,7 +188,7 @@ class TouchHeadGesture(BaseGesture):
 
 class HeadTiltGesture(BaseGesture):
     def __init__(self):
-        super().__init__("cabeza_inclinada", 0.5)
+        super().__init__("cabeza_inclinada")
         self.priority = 9
     
     def check(self, results, image_shape):
@@ -211,7 +208,7 @@ class HeadTiltGesture(BaseGesture):
 
 class ThumbsUpGesture(BaseGesture):
     def __init__(self):
-        super().__init__("pulgar_arriba", 0.7)
+        super().__init__("pulgar_arriba")
     
     def check(self, results, image_shape):
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
@@ -233,7 +230,7 @@ class ThumbsUpGesture(BaseGesture):
 
 class PointingGesture(BaseGesture):
     def __init__(self):
-        super().__init__("señalar", 0.6)
+        super().__init__("señalar")
     
     def check(self, results, image_shape):
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
@@ -254,7 +251,7 @@ class PointingGesture(BaseGesture):
 
 class PeaceSignGesture(BaseGesture):
     def __init__(self):
-        super().__init__("paz", 0.7)
+        super().__init__("paz")
     
     def check(self, results, image_shape):
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
@@ -280,7 +277,7 @@ class PeaceSignGesture(BaseGesture):
 
 class HandsTogetherGesture(BaseGesture):
     def __init__(self):
-        super().__init__("manos_juntas", 0.6)
+        super().__init__("manos_juntas")
     
     def check(self, results, image_shape):
         left_wrist = get_landmark_coords(results.pose_landmarks, 15, image_shape)
@@ -293,7 +290,7 @@ class HandsTogetherGesture(BaseGesture):
     
 class HandsOnHipsGesture(BaseGesture):
     def __init__(self):
-        super().__init__("manos_en_caderas", 0.6)
+        super().__init__("manos_en_caderas")
     
     def check(self, results, image_shape):
         lw = get_landmark_coords(results.pose_landmarks, 15, image_shape)
@@ -346,8 +343,8 @@ def finger_states(pts):
 class HandShapeGesture(BaseGesture):
     """Gesto que depende solo de la forma de una mano (cualquiera de las dos)."""
 
-    def __init__(self, name, confidence_threshold=0.6, priority=3):
-        super().__init__(name, confidence_threshold)
+    def __init__(self, name, priority=3):
+        super().__init__(name)
         self.priority = priority
 
     def check(self, results, image_shape):
@@ -420,7 +417,7 @@ class WaveGesture(BaseGesture):
     """Mano abierta moviéndose de lado a lado."""
 
     def __init__(self, history=20):
-        super().__init__("saludar", 0.6)
+        super().__init__("saludar")
         self.priority = 4
         self.wrist_x = {"left": deque(maxlen=history), "right": deque(maxlen=history)}
 

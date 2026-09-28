@@ -16,7 +16,6 @@ class GestureDetector:
         self.temporal_window = 12
         self.temporal_threshold = 7
         self.gesture_buffer = deque(maxlen=self.temporal_window)
-        self.smoothed_gesture = "Ninguno"
 
         self.draw_face = draw_face
         self.draw_pose = draw_pose

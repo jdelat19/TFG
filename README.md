@@ -8,7 +8,6 @@ La idea es capturar el video, detectar los puntos clave del cuerpo (llamados lan
 ## Estructura
 ```
 TFG/                                  # Workspace de catkin (ROS Noetic)
-├── Deprecated/                       # Versión anterior sin ROS
 ├── Img/                              # Capturas de gestos y emociones
 └── src/human_detection/              # Paquete ROS
     ├── launch/
@@ -127,3 +126,13 @@ FINGER_TIPS = [4, 8, 12, 16, 20]
 - **MediaPipe Holistic** para los puntos del cuerpo, la cara y las manos
 - **Whisper**, **wav2vec 2.0** y **RoBERTa** para la voz
 
+
+## Instalación
+Versiones probadas juntas en Ubuntu 20.04 + ROS Noetic (otras combinaciones de MediaPipe, TensorFlow y FER dan conflictos):
+```bash
+sudo apt install ros-noetic-turtlebot3 ros-noetic-turtlebot3-simulations
+pip3 install --user numpy==1.24.3 protobuf==3.20.3 tensorflow==2.13.0 mediapipe==0.10.7 \
+                    fer==22.5.1 opencv-python==4.8.1.78 onnxruntime==1.19.2
+pip3 install --user torch transformers openai-whisper sounddevice PyOpenGL glfw
+```
+Después: `catkin_make && source devel/setup.bash` y `rosrun human_detection launch_menu.py`.
