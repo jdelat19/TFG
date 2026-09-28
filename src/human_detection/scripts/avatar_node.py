@@ -54,7 +54,6 @@ class AvatarNode:
         if not hand_landmarks:
             return canvas
 
-        h, w = canvas.shape[:2]
         points = {}
 
         for i, lm in enumerate(hand_landmarks):
