@@ -26,7 +26,7 @@ TFG/                                  # Workspace de catkin (ROS Noetic)
     ├── src/                          # Módulos
     │   ├── gesture_detector.py       # Detección con MediaPipe Holistic
     │   ├── gestures.py               # Reglas de cada gesto
-    │   ├── facial_expression.py      # Emoción facial con FER
+    │   ├── facial_expression.py      # Emoción facial (HSEmotion o FER)
     │   ├── scan_utils.py             # Procesado del lidar (patas de mesa, etc.)
     │   ├── avatar_media.py           # Imagen o vídeo del avatar según modo/emoción/gesto
     │   └── utils.py                  # Coordenadas y distancias
@@ -122,5 +122,8 @@ FINGER_TIPS = [4, 8, 12, 16, 20]
 5. **Visualización**: Se dibuja el esqueleto y se muestra el gesto detectado
 
 ## Modelos usados
-- **FER**
+- **HSEmotion** (`enet_b2_7`, AffectNet) para la emoción facial, con onnxruntime. Se descarga solo en `~/.hsemotion/` la primera vez. Instalar: `pip3 install --user onnxruntime==1.19.2 numpy==1.24.3 protobuf==3.20.3`
+- **FER** como alternativa si HSEmotion no está disponible (parámetro `~emotion_backend:=fer`)
+- **MediaPipe Holistic** para los puntos del cuerpo, la cara y las manos
+- **Whisper**, **wav2vec 2.0** y **RoBERTa** para la voz
 
