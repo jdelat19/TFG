@@ -10,7 +10,7 @@ from collections import deque, Counter
 class GestureDetector:
     def __init__(self, gestures: List[BaseGesture] = None,
                  draw_face=True, draw_pose=True, draw_hands=True,
-                 enable_emotion_detection=True):
+                 enable_emotion_detection=True, emotion_backend="hsemotion"):
         self.mp_holistic = mp.solutions.holistic
         self.mp_drawing = mp.solutions.drawing_utils
         self.temporal_window = 12
@@ -32,7 +32,7 @@ class GestureDetector:
 
         self.enable_emotion_detection = enable_emotion_detection
         if enable_emotion_detection:
-            self.emotion_detector = FacialExpressionDetector()
+            self.emotion_detector = FacialExpressionDetector(backend=emotion_backend)
         else:
             self.emotion_detector = None
 
@@ -51,6 +51,19 @@ class GestureDetector:
                 "v": float(getattr(lm, "visibility", 0.0))
             })
         return out
+
+    @staticmethod
+    def face_box(face_landmarks, image_shape, margin=0.1):
+        """Caja (x0, y0, x1, y1) de la cara a partir de la malla de MediaPipe, con un margen."""
+        if face_landmarks is None:
+            return None
+        h, w = image_shape
+        xs = [lm.x * w for lm in face_landmarks.landmark]
+        ys = [lm.y * h for lm in face_landmarks.landmark]
+        mx, my = margin * (max(xs) - min(xs)), margin * (max(ys) - min(ys))
+        x0, y0 = int(max(0, min(xs) - mx)), int(max(0, min(ys) - my))
+        x1, y1 = int(min(w, max(xs) + mx)), int(min(h, max(ys) + my))
+        return (x0, y0, x1, y1) if x1 > x0 and y1 > y0 else None
 
     def temporal_smoothing(self, detected_gesture: str) -> str:
         self.gesture_buffer.append(detected_gesture)
@@ -92,7 +105,8 @@ class GestureDetector:
 
         emotion_data = {"emotion": "Desactivado", "confidence": 0.0}
         if self.enable_emotion_detection and self.emotion_detector:
-            emotion, confidence = self.emotion_detector.detect_emotion(image)
+            box = self.face_box(results.face_landmarks, image.shape[:2])
+            emotion, confidence = self.emotion_detector.detect_emotion(image, box)
             emotion_data = {"emotion": emotion, "confidence": confidence}
 
         self.draw_landmarks(image, results)

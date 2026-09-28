@@ -17,12 +17,15 @@ class HumanROSNode:
         self.pub = rospy.Publisher("/human_state", String, queue_size=10)
 
         self.mode = int(rospy.get_param("~mode", 1))
+        # "hsemotion" (más preciso) o "fer"; si el elegido no está disponible se usa el otro
+        emotion_backend = rospy.get_param("~emotion_backend", "hsemotion")
 
         self.detector = GestureDetector(
             draw_face=True,
             draw_pose=True,
             draw_hands=True,
             enable_emotion_detection=(self.mode != 4),
+            emotion_backend=emotion_backend,
         )
 
         self.cap = cv2.VideoCapture(0)
