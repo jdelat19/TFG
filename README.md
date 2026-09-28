@@ -28,8 +28,9 @@ TFG/                                  # Workspace de catkin (ROS Noetic)
     │   ├── gestures.py               # Reglas de cada gesto
     │   ├── facial_expression.py      # Emoción facial con FER
     │   ├── scan_utils.py             # Procesado del lidar (patas de mesa, etc.)
+    │   ├── avatar_media.py           # Imagen o vídeo del avatar según modo/emoción/gesto
     │   └── utils.py                  # Coordenadas y distancias
-    ├── media/                        # Imágenes, vídeos y modelos 3D del avatar
+    ├── media/                        # Imágenes y vídeos del avatar
     ├── worlds/                       # Mundo de Gazebo
     └── test/                         # Tests (python3 -m pytest test/)
 ```
