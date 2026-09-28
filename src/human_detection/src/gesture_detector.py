@@ -120,6 +120,14 @@ class GestureDetector:
             color = (0, 255, 255) if emotion_data['emotion'] != "Desactivado" else (100, 100, 100)
             cv2.putText(image, emotion_text, (10, y_position),
                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
+
+            # Las tres emociones más probables, para ver por qué se elige una
+            probs = self.emotion_detector.probabilities if self.emotion_detector else {}
+            top3 = sorted(probs.items(), key=lambda kv: kv[1], reverse=True)[:3]
+            if top3:
+                text = "  ".join(f"{name} {p:.2f}" for name, p in top3)
+                cv2.putText(image, text, (10, y_position + 32),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
     
     def draw_landmarks(self, image, results):
         """Dibujar landmarks según configuración"""
