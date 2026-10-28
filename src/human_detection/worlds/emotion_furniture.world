@@ -1,0 +1,448 @@
+<?xml version="1.0"?>
+<!-- Habitación con dos mesas, sillas alrededor, una silla suelta y una mesa baja -->
+<sdf version="1.6">
+  <world name="emotion_world">
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+    <physics type="ode">
+      <real_time_update_rate>1000.0</real_time_update_rate>
+      <max_step_size>0.001</max_step_size>
+    </physics>
+
+    <model name="room">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="n">
+        <pose>0 3.5 0.25 0 0 0</pose>
+        <collision name="c"><geometry><box><size>7.0 0.1 0.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>7.0 0.1 0.5</size></box></geometry>
+          <material><ambient>0.8 0.8 0.75 1</ambient><diffuse>0.8 0.8 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="s">
+        <pose>0 -3.5 0.25 0 0 0</pose>
+        <collision name="c"><geometry><box><size>7.0 0.1 0.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>7.0 0.1 0.5</size></box></geometry>
+          <material><ambient>0.8 0.8 0.75 1</ambient><diffuse>0.8 0.8 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="e">
+        <pose>3.5 0 0.25 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.1 7.0 0.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.1 7.0 0.5</size></box></geometry>
+          <material><ambient>0.8 0.8 0.75 1</ambient><diffuse>0.8 0.8 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="w">
+        <pose>-3.5 0 0.25 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.1 7.0 0.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.1 7.0 0.5</size></box></geometry>
+          <material><ambient>0.8 0.8 0.75 1</ambient><diffuse>0.8 0.8 0.75 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Mesa A con cuatro sillas -->
+    <model name="table_a">
+      <static>true</static>
+      <pose>-1.8 1.8 0 0 0 0</pose>
+      <link name="leg0">
+        <pose>0.47 0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.47 -0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.47 0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.47 -0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="top">
+        <pose>0 0 0.735 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.0 0.7 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.0 0.7 0.03</size></box></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="chair_a1">
+      <static>true</static>
+      <pose>-2.05 2.5 0 0 0 -1.5708</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="chair_a2">
+      <static>true</static>
+      <pose>-1.55 2.5 0 0 0 -1.5708</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="chair_a3">
+      <static>true</static>
+      <pose>-2.05 1.1 0 0 0 1.5708</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="chair_a4">
+      <static>true</static>
+      <pose>-1.55 1.1 0 0 0 1.5708</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Mesa B con dos sillas -->
+    <model name="table_b">
+      <static>true</static>
+      <pose>-1.6 -2 0 0 0 1.5708</pose>
+      <link name="leg0">
+        <pose>0.47 0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.47 -0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.47 0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.47 -0.32 0.36 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.025</radius><length>0.72</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="top">
+        <pose>0 0 0.735 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.0 0.7 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.0 0.7 0.03</size></box></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="chair_b1">
+      <static>true</static>
+      <pose>-0.9 -2 0 0 0 3.14159</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="chair_b2">
+      <static>true</static>
+      <pose>-2.3 -2 0 0 0 0</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Silla suelta detrás del robot -->
+    <model name="chair_c">
+      <static>true</static>
+      <pose>-1 0 0 0 0 0</pose>
+      <link name="leg0">
+        <pose>0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.2 0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.2 -0.2 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="seat">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.42 0.42 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.42 0.42 0.03</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>-0.2 0 0.67 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.03 0.42 0.4</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.03 0.42 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.35 1</ambient><diffuse>0.3 0.3 0.35 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Mesa baja: el robot no cabe debajo -->
+    <model name="coffee_table">
+      <static>true</static>
+      <pose>0.2 -1.6 0 0 0 0</pose>
+      <link name="leg0">
+        <pose>0.47 0.32 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg1">
+        <pose>0.47 -0.32 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg2">
+        <pose>-0.47 0.32 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="leg3">
+        <pose>-0.47 -0.32 0.22 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.44</length></cylinder></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="top">
+        <pose>0 0 0.455 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.0 0.7 0.03</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.0 0.7 0.03</size></box></geometry>
+          <material><ambient>0.55 0.35 0.2 1</ambient><diffuse>0.55 0.35 0.2 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="person">
+      <static>true</static>
+      <pose>1.2 0 0 0 0 0</pose>
+      <link name="body">
+        <pose>0 0 0.85 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.18</radius><length>1.7</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.18</radius><length>1.7</length></cylinder></geometry>
+          <material><ambient>0.2 0.4 0.8 1</ambient><diffuse>0.2 0.4 0.8 1</diffuse></material></visual>
+      </link>
+    </model>
+  </world>
+</sdf>

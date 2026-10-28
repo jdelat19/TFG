@@ -16,7 +16,7 @@ def scan_to_points(ranges, angle_min, angle_increment, range_min, range_max):
     """Devuelve (angulos, distancias, xs, ys) solo de las lecturas válidas."""
     r = np.asarray(ranges, dtype=float)
     ang = angle_min + angle_increment * np.arange(len(r))
-    # El LDS del TurtleBot3 devuelve 0.0 para lecturas inválidas
+    # Algunos lidar (RPLidar, LDS) devuelven 0.0 para lecturas inválidas
     valid = np.isfinite(r) & (r > max(range_min, 0.01)) & (r < range_max)
     r, ang = r[valid], ang[valid]
     return ang, r, r * np.cos(ang), r * np.sin(ang)
@@ -50,21 +50,44 @@ def cluster_points(xs, ys, jump=0.1):
     return clusters
 
 
-def describe_clusters(xs, ys, clusters):
-    """Centroide, anchura (extremo a extremo) y número de puntos de cada grupo."""
+def describe_clusters(xs, ys, clusters, surface_gap=0.5, line_tol=0.05):
+    """Centroide, anchura (extremo a extremo) y número de puntos de cada grupo.
+
+    `isolated` es False si el grupo es un trozo de una superficie más grande: una
+    pared vista muy de lado se rompe en puntos sueltos, pero cada uno queda
+    alineado con sus vecinos del barrido (a menos de `surface_gap` metros).
+    """
+    n = len(xs)
     out = []
     for idx in clusters:
         cx, cy = float(xs[idx].mean()), float(ys[idx].mean())
         width = math.hypot(xs[idx[0]] - xs[idx[-1]], ys[idx[0]] - ys[idx[-1]])
+        prev, nxt = (idx[0] - 1) % n, (idx[-1] + 1) % n
+        isolated = True
+        if len(clusters) > 1:
+            gap_prev = math.hypot(xs[prev] - xs[idx[0]], ys[prev] - ys[idx[0]])
+            gap_next = math.hypot(xs[nxt] - xs[idx[-1]], ys[nxt] - ys[idx[-1]])
+            if gap_prev < surface_gap and gap_next < surface_gap:
+                isolated = _point_segment_dist(cx, cy, xs[prev], ys[prev],
+                                               xs[nxt], ys[nxt]) > line_tol
         out.append({"x": cx, "y": cy, "width": width, "n": len(idx),
-                    "dist": math.hypot(cx, cy), "angle": math.atan2(cy, cx)})
+                    "dist": math.hypot(cx, cy), "angle": math.atan2(cy, cx),
+                    "isolated": isolated})
     return out
+
+
+def _point_segment_dist(px, py, ax, ay, bx, by):
+    dx, dy = bx - ax, by - ay
+    length2 = dx * dx + dy * dy
+    t = 0.0 if length2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length2))
+    return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 
 
 def find_legs(clusters_info, max_width=0.09, max_dist=3.5, max_points=12):
     """Grupos pequeños y aislados: candidatos a pata de mesa."""
     return [c for c in clusters_info
-            if c["width"] <= max_width and c["dist"] <= max_dist and c["n"] <= max_points]
+            if c["width"] <= max_width and c["dist"] <= max_dist and c["n"] <= max_points
+            and c.get("isolated", True)]
 
 
 def _segment_is_free(xs, ys, a, b, margin=0.08, end_clearance=0.1):
@@ -79,10 +102,60 @@ def _segment_is_free(xs, ys, a, b, margin=0.08, end_clearance=0.1):
     return not np.any(inner & (dist < margin))
 
 
-def find_tables(legs, xs, ys, min_spacing=0.4, max_spacing=1.6):
-    """Parejas de patas con hueco libre entre ellas por donde puede pasar el robot.
+def _fourth_leg_possible(xs, ys, x, y, own_legs, tol=0.1):
+    """La cuarta pata en (x, y) se ve en el barrido o la tapa otra pata de la
+    misma mesa (la pata del fondo queda detrás de una de delante)."""
+    if np.any(np.hypot(xs - x, ys - y) < tol):
+        return True
+    dist, ang = math.hypot(x, y), math.atan2(y, x)
+    half = max(math.atan2(tol, dist), math.radians(1.5))
+    return any(abs(normalize_angle(leg["angle"] - ang)) < half + math.atan2(0.05, leg["dist"])
+               and leg["dist"] < dist - tol for leg in own_legs)
 
-    Devuelve una lista de dicts {left, right, mid_x, mid_y, dist}, de la más
+
+def _inside_is_empty(xs, ys, end, other, c, margin=0.08):
+    """No hay puntos del barrido dentro del rectángulo de patas end-other-c
+    (debajo de una mesa no hay nada a la altura del lidar)."""
+    ux, uy = other["x"] - end["x"], other["y"] - end["y"]
+    vx, vy = c["x"] - end["x"], c["y"] - end["y"]
+    lu, lv = math.hypot(ux, uy), math.hypot(vx, vy)
+    s = ((xs - end["x"]) * ux + (ys - end["y"]) * uy) / lu
+    t = ((xs - end["x"]) * vx + (ys - end["y"]) * vy) / lv
+    inside = (s > margin) & (s < lu - margin) & (t > margin) & (t < lv - margin)
+    return not np.any(inside)
+
+
+def _corner_leg(a, b, legs, xs, ys, min_spacing, max_spacing, angle_tol):
+    """Tercera pata que forma un ángulo recto con el lado a-b en a o en b, y
+    cuya cuarta pata (la que cierra el rectángulo) no contradice el barrido."""
+    for end, other in ((a, b), (b, a)):
+        ux, uy = other["x"] - end["x"], other["y"] - end["y"]
+        for c in legs:
+            if c is a or c is b:
+                continue
+            vx, vy = c["x"] - end["x"], c["y"] - end["y"]
+            side = math.hypot(vx, vy)
+            if not (min_spacing <= side <= max_spacing):
+                continue
+            cos = (ux * vx + uy * vy) / (math.hypot(ux, uy) * side)
+            if (abs(cos) < math.sin(angle_tol)
+                    and _fourth_leg_possible(xs, ys, other["x"] + vx, other["y"] + vy, (a, b, c))
+                    and _inside_is_empty(xs, ys, end, other, c)):
+                return c
+    return None
+
+
+def find_tables(legs, xs, ys, min_spacing=0.4, max_spacing=1.6, angle_tol=math.radians(15)):
+    """Lados de mesa por donde puede pasar el robot.
+
+    Un lado es una pareja de patas a-b con hueco libre entre ellas y una tercera
+    pata c en ángulo recto (una esquina), con los dos lados entre `min_spacing`
+    y `max_spacing`; la cuarta pata tiene que verse o quedar tapada por otra
+    pata de la misma mesa, y dentro del rectángulo no puede haber nada. Así no cuentan las sillas (lados más
+    cortos), patas sueltas de varias sillas ni la diagonal de la mesa. La pata
+    c indica hacia dónde está el interior de la mesa.
+
+    Devuelve una lista de dicts {a, b, c, mid_x, mid_y, dist}, de la más
     cercana a la más lejana.
     """
     tables = []
@@ -94,11 +167,41 @@ def find_tables(legs, xs, ys, min_spacing=0.4, max_spacing=1.6):
                 continue
             if not _segment_is_free(xs, ys, a, b):
                 continue
+            c = _corner_leg(a, b, legs, xs, ys, min_spacing, max_spacing, angle_tol)
+            if c is None:
+                continue
             mx, my = (a["x"] + b["x"]) / 2, (a["y"] + b["y"]) / 2
-            tables.append({"a": a, "b": b, "mid_x": mx, "mid_y": my,
+            tables.append({"a": a, "b": b, "c": c, "mid_x": mx, "mid_y": my,
                            "dist": math.hypot(mx, my)})
     tables.sort(key=lambda t: t["dist"])
     return tables
+
+
+def find_people(clusters_info, body_width=(0.15, 0.6), leg_width=(0.06, 0.25),
+                max_leg_gap=0.45, max_dist=3.5):
+    """Objetos con forma de persona vista a la altura del lidar.
+
+    - Un cuerpo: un grupo de `body_width` metros de ancho (en Gazebo la persona
+      es un cilindro de 36 cm).
+    - Dos piernas: dos grupos de `leg_width` metros a menos de `max_leg_gap`
+      entre sí (persona real con el lidar a la altura de las rodillas). Se
+      devuelven como un solo candidato en el punto medio.
+
+    Las patas de sillas y mesas son más finas y las paredes más anchas, así
+    que no cuentan. Devuelve dicts con las mismas claves que describe_clusters.
+    """
+    near = [c for c in clusters_info if c["dist"] <= max_dist]
+    people = [c for c in near if body_width[0] <= c["width"] <= body_width[1]]
+    legs = [c for c in near if leg_width[0] <= c["width"] <= leg_width[1]]
+    for i in range(len(legs)):
+        for j in range(i + 1, len(legs)):
+            a, b = legs[i], legs[j]
+            if math.hypot(a["x"] - b["x"], a["y"] - b["y"]) <= max_leg_gap:
+                x, y = (a["x"] + b["x"]) / 2, (a["y"] + b["y"]) / 2
+                people.append({"x": x, "y": y, "width": a["width"] + b["width"],
+                               "n": a["n"] + b["n"], "dist": math.hypot(x, y),
+                               "angle": math.atan2(y, x), "isolated": True})
+    return people
 
 
 def closest_cluster(clusters_info, center, half_width, max_dist=3.0, near=None, near_radius=0.7):

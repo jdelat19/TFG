@@ -6,10 +6,16 @@
     <arg name="sim" default="false" />
     <!-- Arranca también Gazebo (implica sim) -->
     <arg name="gazebo" default="false" />
+    <!-- Mundo de Gazebo (ver turtlebot_sim.launch) -->
+    <arg name="world" default="emotion_room" />
+    <!-- Velocidad del Kobuki (con cmd_vel_mux: /cmd_vel_mux/input/navi) -->
+    <arg name="cmd_vel_topic" default="/mobile_base/commands/velocity" />
 
     <param name="use_sim_time" value="$(eval arg('sim') or arg('gazebo'))" />
 
-    <include if="$(arg gazebo)" file="$(find human_detection)/launch/turtlebot_sim.launch" />
+    <include if="$(arg gazebo)" file="$(find human_detection)/launch/turtlebot_sim.launch">
+        <arg name="world" value="$(arg world)" />
+    </include>
 
     <group if="$(arg use_camera)">
         <node pkg="human_detection" type="ros_node.py" name="human_detector" output="screen">
@@ -24,9 +30,10 @@
     </group>
 
     <node pkg="human_detection" type="turtlebot_emotion_node.py" name="turtlebot_emotion_node" output="screen">
+        <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
         <param name="max_linear" value="0.18" />
-        <param name="approach_distance" value="0.5" />
-        <param name="comfort_distance" value="0.8" />
+        <param name="approach_distance" value="0.6" />
+        <param name="comfort_distance" value="0.9" />
         <param name="retreat_distance" value="1.5" />
         <param name="person_initial_distance" value="1.0" />
     </node>

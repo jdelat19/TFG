@@ -207,18 +207,34 @@ def ros_already_running():
     return not go_on
 
 
+WORLDS = [
+    ("emotion_room", "Habitación con mesa", "una mesa a la vista"),
+    ("emotion_far_table", "Pasillo con mesa al fondo", "la encuentra en la tercera búsqueda"),
+    ("emotion_furniture", "Mesas, sillas y mesa baja", "se atasca en la baja y busca otra"),
+    ("emotion_empty", "Habitación vacía", "no hay mesa: huye 3 veces y se para"),
+]
+
+
+def choose_world():
+    """Devuelve el nombre del mundo de Gazebo elegido, o CANCEL."""
+    entries = [option(label, hint, name) for name, label, hint in WORLDS]
+    world = choose("Mundo de Gazebo", "¿Dónde se prueba el robot?", entries)
+    return CANCEL if world is None else world
+
+
 def run_turtlebot_sim_camera():
-    if ros_already_running():
+    world = choose_world()
+    if world == CANCEL or ros_already_running():
         return
-    roslaunch("turtlebot_emotion.launch", "gazebo:=true", "use_camera:=true")
+    roslaunch("turtlebot_emotion.launch", "gazebo:=true", "use_camera:=true", f"world:={world}")
 
 
 def run_turtlebot_real():
     master = os.environ.get("ROS_MASTER_URI", "")
     lines = [f"  ROS_MASTER_URI = {cyan(master or '(sin definir)')}"]
     if not master or "localhost" in master:
-        lines.append(yellow("  Apunta a este PC: lanza en el robot"))
-        lines.append(dim("    roslaunch turtlebot3_bringup turtlebot3_robot.launch"))
+        lines.append(yellow("  Apunta a este PC: lanza en el portátil del TurtleBot2"))
+        lines.append(dim("    roslaunch turtlebot_bringup minimal.launch  (y el driver del lidar)"))
     lines.append(dim("  Coloca el robot mirando hacia ti, a ~1 m."))
 
     confirm = choose("TurtleBot real", "¿Lanzar?", [
@@ -256,13 +272,14 @@ def run_turtlebot_sim_manual():
 
     La cámara solo se abre si se elige "cámara" en el panel.
     """
-    if ros_already_running():
+    world = choose_world()
+    if world == CANCEL or ros_already_running():
         return
     os.makedirs(os.path.dirname(SIM_LOG), exist_ok=True)
     log = open(SIM_LOG, "w")
     proc = subprocess.Popen(
         ["roslaunch", "human_detection", "turtlebot_emotion.launch",
-         "gazebo:=true", "use_camera:=false"],
+         "gazebo:=true", "use_camera:=false", f"world:={world}"],
         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     camera = {"proc": None}
 
