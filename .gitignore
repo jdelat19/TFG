@@ -1,13 +1,33 @@
-# Generado por catkin_make
+# Generado por catkin_make / catkin build
 build/
 devel/
 install/
+logs/
+.catkin_tools/
 
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+venv/
+.venv/
+
+# Modelos descargados (se bajan solos la primera vez)
+*.onnx
+*.pt
+*.pth
+
+# Logs y grabaciones
+*.log
+*.bag
 
 # Editores
 .vscode/
 .idea/
 *.swp
+*~
+CMakeLists.txt.user
+
+# Sistema
+.DS_Store
