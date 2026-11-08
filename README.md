@@ -11,7 +11,9 @@ La cámara obtiene los puntos clave del cuerpo, la cara y las manos (landmarks) 
 ## Estructura
 ```
 TFG/                                  # Workspace de catkin (ROS Noetic)
+├── install.sh                        # Instalación completa en Ubuntu 20.04
 ├── requirements.txt                  # Dependencias de Python
+├── requirements-lock.txt             # Versiones exactas (las usa install.sh)
 ├── Img/                              # Capturas de gestos y emociones
 └── src/human_detection/              # Paquete ROS
     ├── launch/
@@ -147,17 +149,20 @@ rostopic pub -1 /emotion_override std_msgs/String "data: 'enojo'"   # "auto" vue
 ## Instalación
 Probado en **Ubuntu 20.04 + ROS Noetic** (Python 3.8). Otras combinaciones de versiones de MediaPipe, TensorFlow y FER dan conflictos.
 
+En un ordenador nuevo con Ubuntu 20.04 basta con:
 ```bash
-sudo apt install ros-noetic-desktop-full libportaudio2 ffmpeg
-pip3 install --user -r requirements.txt
+git clone https://github.com/jdelat19/TFG.git ~/Escritorio/TFG
+cd ~/Escritorio/TFG
+./install.sh
 ```
 
-Compilar el workspace:
-```bash
-cd ~/Escritorio/TFG
-catkin_make
-source /opt/ros/noetic/setup.bash && source devel/setup.bash
-```
+`install.sh` hace todo lo necesario (se puede volver a ejecutar sin problema):
+1. Instala ROS Noetic (`desktop-full`) y las librerías del sistema con `apt` (pide la contraseña de `sudo`).
+2. Crea un entorno virtual en `.venv` con las versiones exactas de `requirements-lock.txt`, las del PC donde se desarrolló (unos 3 GB de descarga).
+3. Compila el workspace para que los nodos usen el Python de `.venv` (no hace falta activarlo) y añade ROS al `~/.bashrc`.
+4. Comprueba que todo carga y pasa los tests.
+
+`requirements.txt` es la lista corta de lo que usa el proyecto; `requirements-lock.txt` tiene todas las dependencias con su versión exacta.
 
 La simulación usa un modelo propio del TurtleBot2 (`urdf/turtlebot2.urdf.xacro`) con los plugins de `gazebo_plugins`, así que no hace falta instalar `kobuki_gazebo` (no está en apt para Noetic).
 

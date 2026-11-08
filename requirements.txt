@@ -1,5 +1,6 @@
 # Requisitos de Python del proyecto (probado en Ubuntu 20.04 + ROS Noetic, Python 3.8)
-# Instalar con: pip3 install --user -r requirements.txt
+# Lo más fácil es ./install.sh (usa requirements-lock.txt, con las versiones exactas).
+# A mano: pip3 install --user -r requirements.txt
 #
 # Paquetes del sistema necesarios (no se instalan con pip):
 #   sudo apt install ros-noetic-desktop-full libportaudio2 ffmpeg
