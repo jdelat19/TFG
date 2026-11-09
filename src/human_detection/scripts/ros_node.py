@@ -4,7 +4,9 @@ import os
 import sys
 
 import cv2
+import numpy as np
 import rospy
+from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -28,7 +30,16 @@ class HumanROSNode:
             emotion_backend=emotion_backend,
         )
 
-        self.cap = cv2.VideoCapture(0)
+        # Si image_topic está vacío se usa la webcam local; si no, la cámara de ese topic
+        self.image_topic = rospy.get_param("~image_topic", "")
+        self.flip = rospy.get_param("~flip", not self.image_topic)
+        self.cap = None
+        self.last_image = None
+        if self.image_topic:
+            rospy.Subscriber(self.image_topic, Image, self.image_callback, queue_size=1, buff_size=2**24)
+            rospy.loginfo("Usando la cámara del topic %s", self.image_topic)
+        else:
+            self.cap = cv2.VideoCapture(0)
         rospy.Subscriber("/voice_emotion", String, self.voice_callback)
         self.last_voice = {
             "voice_emotion": "neutral",
@@ -37,6 +48,25 @@ class HumanROSNode:
         }
 
         rospy.loginfo("HumanROSNode listo")
+
+    def image_callback(self, msg):
+        """Convierte sensor_msgs/Image a BGR sin depender de cv_bridge."""
+        try:
+            channels = {"rgb8": 3, "bgr8": 3, "mono8": 1, "rgba8": 4, "bgra8": 4}[msg.encoding]
+            img = np.frombuffer(msg.data, dtype=np.uint8)
+            img = img.reshape(msg.height, msg.step)[:, : msg.width * channels]
+            img = img.reshape(msg.height, msg.width, channels).copy()
+            code = {"rgb8": cv2.COLOR_RGB2BGR, "mono8": cv2.COLOR_GRAY2BGR,
+                    "rgba8": cv2.COLOR_RGBA2BGR, "bgra8": cv2.COLOR_BGRA2BGR}.get(msg.encoding)
+            self.last_image = cv2.cvtColor(img, code) if code is not None else img
+        except Exception as e:
+            rospy.logwarn_throttle(5, "Imagen no soportada (%s): %s", msg.encoding, e)
+
+    def read_frame(self):
+        if self.cap is not None:
+            return self.cap.read()
+        frame, self.last_image = self.last_image, None
+        return frame is not None, frame
 
     def voice_callback(self, msg):
         try:
@@ -48,13 +78,14 @@ class HumanROSNode:
         rate = rospy.Rate(10)
 
         while not rospy.is_shutdown():
-            ret, frame = self.cap.read()
+            ret, frame = self.read_frame()
             if not ret:
                 rospy.logwarn("No se recibió frame")
                 rate.sleep()
                 continue
 
-            frame = cv2.flip(frame, 1)
+            if self.flip:
+                frame = cv2.flip(frame, 1)
             processed_frame, data = self.detector.process_frame(frame)
 
             payload = {
@@ -79,7 +110,8 @@ class HumanROSNode:
 
             rate.sleep()
 
-        self.cap.release()
+        if self.cap is not None:
+            self.cap.release()
         cv2.destroyAllWindows()
         self.detector.close()
 

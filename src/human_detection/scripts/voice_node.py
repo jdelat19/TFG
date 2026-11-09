@@ -91,9 +91,25 @@ class VoiceEmotionNode:
         self.voice_model.to(self.device)
         self.voice_model.eval()
 
-        self.microphone = rospy.get_param("~microphone", MICROPHONE_ID)
+        self.microphone = self.pick_microphone(rospy.get_param("~microphone", MICROPHONE_ID))
         self.rate = rospy.Rate(1.0 / max(DURATION, 1))
         rospy.loginfo("VoiceEmotionNode listo")
+
+    @staticmethod
+    def pick_microphone(wanted):
+        """Usa el micrófono pedido si existe; si no, el de entrada por defecto."""
+        try:
+            devices = sd.query_devices()
+            if 0 <= int(wanted) < len(devices) and devices[int(wanted)]["max_input_channels"] > 0:
+                return int(wanted)
+            default = sd.default.device[0]
+            if default is None or default < 0:
+                default = next(i for i, d in enumerate(devices) if d["max_input_channels"] > 0)
+            rospy.logwarn("Micrófono %s no válido; uso '%s' (%d)", wanted, devices[default]["name"], default)
+            return int(default)
+        except Exception as e:
+            rospy.logwarn("No se pudo comprobar el micrófono (%s); uso %s", e, wanted)
+            return wanted
 
     def record_audio(self):
         audio = sd.rec(
@@ -193,6 +209,11 @@ class VoiceEmotionNode:
             try:
                 audio = self.record_audio()
                 text = self.transcribe(audio)
+                if not text.strip():
+                    # Silencio o ruido: no se publica para que se mantenga la emoción anterior
+                    rospy.loginfo("Voice: silencio (se mantiene la emoción)")
+                    self.rate.sleep()
+                    continue
                 voice_em = self.predict_voice_emotion(audio)
                 text_em = self.analyze_text(text)
                 final_emotion = self.combine_emotions(voice_em, text_em, text)

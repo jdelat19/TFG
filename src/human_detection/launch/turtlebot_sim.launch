@@ -3,6 +3,10 @@
     <arg name="gui" default="true" />
     <!-- emotion_room, emotion_far_table, emotion_furniture o emotion_empty -->
     <arg name="world" default="emotion_room" />
+    <!-- lidar (360º) o camera (cámara de profundidad como el robot real: 63º, mín. 0.45 m) -->
+    <arg name="sensor" default="lidar" />
+    <!-- world (odometría perfecta) o encoder (con deriva, como la real) -->
+    <arg name="odom" default="world" />
 
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="world_name" value="$(find human_detection)/worlds/$(arg world).world" />
@@ -12,7 +16,7 @@
     </include>
 
     <param name="robot_description"
-           command="$(find xacro)/xacro $(find human_detection)/urdf/turtlebot2.urdf.xacro" />
+           command="$(find xacro)/xacro $(find human_detection)/urdf/turtlebot2.urdf.xacro sensor:=$(arg sensor) odom:=$(arg odom)" />
 
     <!-- El robot empieza mirando hacia la persona (x positiva) -->
     <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf"

@@ -223,6 +223,81 @@ def closest_cluster(clusters_info, center, half_width, max_dist=3.0, near=None, 
     return best
 
 
+def points_to_scan(xs_odom, ys_odom, pose, resolution=math.radians(0.5), max_range=3.5,
+                   priority=None):
+    """Barrido virtual de 360º desde `pose` a partir de puntos en odom.
+
+    Sirve para un sensor de campo estrecho (p. ej. el /scan de la cámara de
+    profundidad): se acumulan los puntos mientras el robot gira y luego se
+    reordenan por ángulo en el marco del robot. En cada sector de `resolution`
+    se queda el punto más cercano, como haría un lidar real, o, si se da
+    `priority`, el de menor prioridad (p. ej. el visto más centrado en la
+    cámara: así cada zona sale de uno o dos scans seguidos y un error de
+    odometría durante la vuelta no emborrona las patas). Devuelve
+    (angulos, distancias) ordenados de -pi a pi.
+    """
+    xs_odom, ys_odom = np.asarray(xs_odom, dtype=float), np.asarray(ys_odom, dtype=float)
+    if len(xs_odom) == 0:
+        return np.array([]), np.array([])
+    px, py, yaw = pose
+    c, s = math.cos(yaw), math.sin(yaw)
+    dx, dy = xs_odom - px, ys_odom - py
+    x, y = c * dx + s * dy, -s * dx + c * dy
+    r = np.hypot(x, y)
+    keep = (r > 0.01) & (r < max_range)
+    ang, r = np.arctan2(y[keep], x[keep]), r[keep]
+    n_bins = int(round(2 * math.pi / resolution))
+    bins = np.floor((ang + math.pi) / resolution).astype(int) % n_bins
+    best = np.full(n_bins, np.inf)
+    if priority is None:
+        np.minimum.at(best, bins, r)
+    else:
+        # Al asignar con índices repetidos gana el último: se ordena de peor a mejor
+        order = np.argsort(-np.asarray(priority, dtype=float)[keep], kind="stable")
+        best[bins[order]] = r[order]
+    filled = np.isfinite(best)
+    centers = -math.pi + (np.arange(n_bins) + 0.5) * resolution
+    return centers[filled], best[filled]
+
+
+def segment_clearance(xs, ys, p0, p1):
+    """Distancia del punto del barrido más cercano al segmento p0-p1."""
+    xs, ys = np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)
+    if len(xs) == 0:
+        return math.inf
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    length2 = dx * dx + dy * dy
+    t = np.zeros_like(xs) if length2 == 0 else np.clip(
+        ((xs - p0[0]) * dx + (ys - p0[1]) * dy) / length2, 0.0, 1.0)
+    return float(np.min(np.hypot(xs - (p0[0] + t * dx), ys - (p0[1] + t * dy))))
+
+
+def match_leg_pair(legs, expected_a, expected_b, spacing, gate, spacing_tol=0.1):
+    """Pareja de patas (la, lb) que mejor encaja con las posiciones esperadas.
+
+    Solo cuentan parejas separadas `spacing` ± `spacing_tol` y con cada pata a
+    menos de `gate` de donde se esperaba. Al exigir la separación, con un `gate`
+    grande no se confunde con otras patas de la misma mesa. Devuelve None si no
+    hay ninguna.
+    """
+    best, best_cost = None, math.inf
+    for la in legs:
+        da = math.hypot(la["x"] - expected_a[0], la["y"] - expected_a[1])
+        if da > gate:
+            continue
+        for lb in legs:
+            if lb is la:
+                continue
+            db = math.hypot(lb["x"] - expected_b[0], lb["y"] - expected_b[1])
+            if db > gate:
+                continue
+            if abs(math.hypot(la["x"] - lb["x"], la["y"] - lb["y"]) - spacing) > spacing_tol:
+                continue
+            if da + db < best_cost:
+                best, best_cost = (la, lb), da + db
+    return best
+
+
 # ---------------------------------------------------------------------------
 # Transformaciones entre el marco odom y el marco del robot
 # ---------------------------------------------------------------------------

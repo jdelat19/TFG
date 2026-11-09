@@ -1,6 +1,8 @@
 <launch>
     <!-- Detección de emociones + comportamiento del TurtleBot -->
     <arg name="use_camera" default="true" />
+    <!-- Topic de la cámara del robot (vacío = webcam del PC), p. ej. /camera/rgb/image_raw -->
+    <arg name="image_topic" default="" />
     <arg name="use_voice" default="false" />
     <arg name="microphone" default="14" />
     <arg name="sim" default="false" />
@@ -8,6 +10,12 @@
     <arg name="gazebo" default="false" />
     <!-- Mundo de Gazebo (ver turtlebot_sim.launch) -->
     <arg name="world" default="emotion_room" />
+    <arg name="gui" default="true" />
+    <!-- Carpeta donde guardar las vueltas de búsqueda de mesa (vacío = no guardar) -->
+    <arg name="debug_dir" default="" />
+    <!-- Sensor y odometría de la simulación (ver turtlebot_sim.launch) -->
+    <arg name="sim_sensor" default="lidar" />
+    <arg name="sim_odom" default="world" />
     <!-- Velocidad del Kobuki (con cmd_vel_mux: /cmd_vel_mux/input/navi) -->
     <arg name="cmd_vel_topic" default="/mobile_base/commands/velocity" />
 
@@ -15,11 +23,15 @@
 
     <include if="$(arg gazebo)" file="$(find human_detection)/launch/turtlebot_sim.launch">
         <arg name="world" value="$(arg world)" />
+        <arg name="gui" value="$(arg gui)" />
+        <arg name="sensor" value="$(arg sim_sensor)" />
+        <arg name="odom" value="$(arg sim_odom)" />
     </include>
 
     <group if="$(arg use_camera)">
         <node pkg="human_detection" type="ros_node.py" name="human_detector" output="screen">
             <param name="mode" value="1" />
+            <param name="image_topic" value="$(arg image_topic)" />
         </node>
     </group>
 
@@ -31,10 +43,15 @@
 
     <node pkg="human_detection" type="turtlebot_emotion_node.py" name="turtlebot_emotion_node" output="screen">
         <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
+        <param name="debug_dir" value="$(arg debug_dir)" />
         <param name="max_linear" value="0.18" />
         <param name="approach_distance" value="0.6" />
         <param name="comfort_distance" value="0.9" />
         <param name="retreat_distance" value="1.5" />
         <param name="person_initial_distance" value="1.0" />
+        <!-- Estabilidad: emoción sostenida 3 s y cada comportamiento al menos 5 s -->
+        <param name="emotion_hold" value="3.0" />
+        <param name="min_behavior_time" value="5.0" />
+        <param name="neutral_hold" value="8.0" />
     </node>
 </launch>

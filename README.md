@@ -113,7 +113,7 @@ El avatar muestra de fondo una imagen (`media/imagenes/<emoción>.png`) o un ví
 |---|---|
 | Feliz | Se acerca a la persona hasta 0,6 m |
 | Triste | Se acerca despacio y se queda a 0,9 m (acompañar) |
-| Enojo / Disgusto | Busca una mesa con el lidar (detecta sus patas) y se esconde debajo |
+| Enojo / Disgusto | Busca una mesa con el `/scan` (detecta sus patas) y se esconde debajo |
 | Miedo | Retrocede hasta quedar a 1,5 m de la persona |
 | Sorpresa | Da una vuelta sobre sí mismo |
 | Neutral | Se queda quieto mirando a la persona |
@@ -127,7 +127,19 @@ El lidar solo ve un corte horizontal a 43 cm, así que la mesa se reconoce por s
 - Dentro del rectángulo de patas no puede haber nada.
 - Los puntos sueltos de una pared vista de lado no cuentan como patas.
 
-Elige el lado más cercano, se coloca delante (rodeando las patas que se le crucen), se alinea y entra. Si se atasca al entrar o no consigue llegar, descarta esa mesa y busca otra. Si no encuentra ninguna, se aleja de la persona por la zona más despejada y vuelve a buscar; tras 3 intentos se queda quieto.
+Si el `/scan` cubre menos de 300° (por ejemplo, el que saca `3dsensor.launch` de la cámara de profundidad, unos 63°), antes de buscar da una vuelta de 360° en el sitio acumulando los puntos en odometría y busca la mesa y la dirección de huida sobre ese barrido virtual. Con un lidar de 360° no gira.
+
+Para que la odometría no descuadre la mesa:
+- Los puntos del `/scan` se pasan al centro del robot con el TF del sensor (en el TurtleBot real la cámara va 8,7 cm por detrás y 5 cm a la izquierda del centro) y se colocan en odometría con la pose del instante del scan, no con la última.
+- En la vuelta solo se usan los puntos vistos cerca del centro de la cámara, así cada pata sale de unos pocos scans seguidos y no se emborrona aunque la odometría derive al girar.
+- Tras la vuelta se gira hacia la mesa y vuelve a localizar en directo las dos patas del lado por el que va a entrar (busca la pareja con la misma separación).
+- Mientras ve esas dos patas se guía por ellas y no por la odometría. Con la cámara (63°) se coloca lo bastante lejos de la mesa para verlas las dos (unos 0,8–1,1 m), se pone perpendicular al lado y entra siguiendo la recta que pasa por su centro. Los últimos ~50 cm, cuando ya no las ve, van por odometría, que en un tramo recto tan corto apenas se desvía.
+
+Elige el lado más cercano, se coloca delante (rodeando las patas que se le crucen), se alinea y entra. Si se atasca al entrar, choca con el bumper o no consigue llegar, descarta esa mesa y busca otra. Si no encuentra ninguna, se aleja de la persona por la zona más despejada y vuelve a buscar; tras 3 intentos se queda quieto.
+
+La cámara de profundidad no ve nada a menos de 45 cm, así que el filtro de seguridad solo puede parar el robot ante obstáculos a partir de ~40 cm del centro; por debajo de eso actúa el bumper del Kobuki.
+
+Con `debug_dir:=<carpeta>` en `turtlebot_emotion.launch` se guarda cada vuelta de búsqueda (`.npz` con los puntos en odometría y el barrido virtual) para revisar por qué no ha encontrado una mesa.
 
 **Limitación**: el lidar no ve la altura. Asientos y tableros por debajo de unos 45 cm no se ven, y una mesa demasiado baja solo se detecta al chocar con ella (a 0,1 m/s).
 
@@ -139,11 +151,18 @@ Elige el lado más cercano, se coloca delante (rodeando las patas que se le cruc
 | `emotion_furniture` | Dos mesas, sillas y una mesa auxiliar de 47 cm | Se atasca en la mesa baja, la descarta y busca otra |
 | `emotion_empty` | Habitación vacía | Huye 3 veces y se queda quieto |
 
-El menú pregunta el mundo al elegir una simulación. Sin menú: `roslaunch human_detection turtlebot_emotion.launch gazebo:=true world:=emotion_furniture`.
+Además del mundo, el menú pregunta el sensor del robot simulado:
+- **Lidar 360°** con odometría perfecta (`sim_sensor:=lidar sim_odom:=world`, por defecto).
+- **Cámara de profundidad** como la del robot real: 63°, nada a menos de 0,45 m, en la misma posición que en el TurtleBot, y odometría integrada de las ruedas, que deriva (`sim_sensor:=camera sim_odom:=encoder`). La de Gazebo deriva bastante más que la del Kobuki real, que usa el giróscopo, así que es un caso peor que el real.
+
+Sin menú: `roslaunch human_detection turtlebot_emotion.launch gazebo:=true world:=emotion_furniture sim_sensor:=camera sim_odom:=encoder`.
+
+Las simulaciones del menú siempre usan un roscore local (`localhost:11311`) aunque `ROS_MASTER_URI` apunte al robot, para no mezclar la simulación con el robot real.
 
 El estado activo se publica en `/turtlebot_emotion/state`. Para probar sin cámara se puede forzar una emoción:
 ```bash
 rostopic pub -1 /emotion_override std_msgs/String "data: 'enojo'"   # "auto" vuelve a la cámara/voz
+rostopic pub -1 /emotion_override std_msgs/String "data: 'parar'"   # se para hasta recibir otra emoción
 ```
 
 ## Instalación
@@ -182,7 +201,8 @@ rosrun human_detection launch_menu.py
 | Avatar → Cara + vídeos de gestos | Modo 4 |
 | TurtleBot → Simulación con cámara | Gazebo + webcam |
 | TurtleBot → Simulación con emociones a elegir | Gazebo + un panel para mandar emociones a mano |
-| TurtleBot → Robot real | Webcam + TurtleBot2 real |
+| TurtleBot → Robot real | Cámara del robot + TurtleBot2 real |
+| TurtleBot → Robot real con emociones a elegir | TurtleBot2 real + un panel para mandar emociones a mano (incluye "parar") |
 
 También se puede lanzar directamente:
 ```bash
@@ -197,7 +217,7 @@ Parámetros útiles:
 - `~emotion_backend:=fer` en `ros_node.py` para usar FER en vez de HSEmotion
 
 ### Conexión con el TurtleBot2 real
-El TurtleBot2 lleva sus drivers (Kobuki y lidar) en el portátil que va encima. Necesita publicar `/odom` y `/scan` (lidar 360º) y escuchar `/mobile_base/commands/velocity`.
+El TurtleBot2 lleva sus drivers (Kobuki y cámara de profundidad) en el portátil que va encima. Necesita publicar `/odom` y `/scan` (de un lidar 360° o de la cámara de profundidad con `3dsensor.launch`) y escuchar `/mobile_base/commands/velocity`.
 
 1. Conectar el PC y el portátil del robot a la misma red y apuntar la IP de cada uno (`hostname -I`).
 2. En el `~/.bashrc` del **PC**:
@@ -210,11 +230,13 @@ El TurtleBot2 lleva sus drivers (Kobuki y lidar) en el portátil que va encima. 
    export ROS_MASTER_URI=http://IP_DEL_PC:11311
    export ROS_HOSTNAME=IP_DEL_ROBOT
    ```
-4. Arrancar `roscore` en el PC y, en el robot, la base y el lidar (por ejemplo `roslaunch turtlebot_bringup minimal.launch` y `roslaunch rplidar_ros rplidar.launch`).
+4. Arrancar `roscore` en el PC y, en el robot, la base y el sensor (`roslaunch turtlebot_bringup minimal.launch` y `roslaunch turtlebot_bringup 3dsensor.launch`, o el driver del lidar si lo tiene).
 5. Comprobar en el PC que llegan `/scan` y `/odom` (`rostopic list`, `rostopic hz /scan`).
-6. Colocar el robot mirando a la persona, a ~1 m, y lanzar `launch_menu.py` → **Robot real**.
+6. Colocar el robot mirando a la persona, a ~1 m, y lanzar `launch_menu.py` → **Robot real** (emoción de la cámara) o **Robot real con emociones a elegir** (emociones a mano).
 
-Para esconderse hace falta una mesa más alta que el robot (el TurtleBot2 con el lidar mide unos 45 cm) con patas finas (menos de 9 cm) separadas entre 0,6 y 1,6 m, para que quepa la base de 35 cm.
+Con **Robot real con emociones a elegir** el menú comprueba antes que llegan `/scan` y `/odom`, lanza el nodo del robot sin cámara y abre un panel para mandar emociones a mano. La opción **parar** detiene el robot al momento; al salir del panel se manda "parar" y se cierra todo. El log queda en `~/.ros/log/tfg_menu_robot_real.log` y las vueltas de búsqueda de mesa en `~/.ros/tfg_vueltas/`.
+
+Para esconderse hace falta una mesa más alta que el robot (el TurtleBot2 mide unos 45 cm) con patas finas (menos de 9 cm) separadas entre 0,6 y 1,6 m, para que quepa la base de 35 cm. Con la cámara de profundidad las patas tienen que verse a la altura de la cámara (unos 30 cm del suelo), sin travesaños ni cajones a esa altura, y conviene dejar ~1,5 m libres delante del lado por el que va a entrar.
 
 ## Tests
 ```bash

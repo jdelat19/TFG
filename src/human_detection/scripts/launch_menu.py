@@ -15,6 +15,8 @@ import tty
 
 DEFAULT_MICROPHONE = 14  # mismo valor por defecto que en los launch
 SIM_LOG = os.path.expanduser("~/.ros/log/tfg_menu_turtlebot.log")
+REAL_LOG = os.path.expanduser("~/.ros/log/tfg_menu_robot_real.log")
+LOCAL_MASTER = "http://localhost:11311"
 
 INTERACTIVE = sys.stdin.isatty() and sys.stdout.isatty()
 USE_COLOR = sys.stdout.isatty() and "NO_COLOR" not in os.environ
@@ -147,12 +149,23 @@ def pause(message):
         read_key()
 
 
-def roslaunch(*args):
+def local_env():
+    """Entorno con el roscore de este PC.
+
+    La simulación nunca debe ir al master del robot real (si ROS_MASTER_URI
+    apunta a él, Gazebo publicaría /odom y /scan falsos y movería el robot).
+    """
+    env = dict(os.environ, ROS_MASTER_URI=LOCAL_MASTER, ROS_HOSTNAME="localhost")
+    env.pop("ROS_IP", None)
+    return env
+
+
+def roslaunch(*args, env=None):
     """Lanza roslaunch en primer plano; Ctrl+C lo para y vuelve al menú."""
     cmd = ["roslaunch", "human_detection", *args]
     clear()
     print(dim("  $ " + " ".join(cmd)) + "\n")
-    proc = subprocess.Popen(cmd)
+    proc = subprocess.Popen(cmd, env=env)
     try:
         proc.wait()
     except KeyboardInterrupt:
@@ -195,12 +208,16 @@ def run_avatar(mode, voice):
     roslaunch(*args)
 
 
-def ros_already_running():
-    """Si ya hay un roscore, pregunta si seguir (evita abrir un segundo Gazebo)."""
+def master_online(uri):
     import rosgraph
-    if not rosgraph.is_master_online():
+    return rosgraph.is_master_online(master_uri=uri)
+
+
+def ros_already_running():
+    """Si ya hay un roscore local, pregunta si seguir (evita abrir un segundo Gazebo)."""
+    if not master_online(LOCAL_MASTER):
         return False
-    go_on = choose("Ya hay un ROS en marcha", os.environ.get("ROS_MASTER_URI", ""), [
+    go_on = choose("Ya hay un ROS en marcha", LOCAL_MASTER, [
         option("Volver", "ciérralo primero (Ctrl+C en su terminal)", False),
         option("Continuar igualmente", "puede abrir un segundo Gazebo", True),
     ], footer=yellow("  Si ya tienes Gazebo abierto, este se sumaría al que hay."))
@@ -216,17 +233,28 @@ WORLDS = [
 
 
 def choose_world():
-    """Devuelve el nombre del mundo de Gazebo elegido, o CANCEL."""
+    """Devuelve los argumentos de mundo y sensor de la simulación, o CANCEL."""
     entries = [option(label, hint, name) for name, label, hint in WORLDS]
     world = choose("Mundo de Gazebo", "¿Dónde se prueba el robot?", entries)
-    return CANCEL if world is None else world
+    if world is None:
+        return CANCEL
+    sensor = choose("Sensor del robot simulado", "¿Qué lleva el TurtleBot?", [
+        option("Lidar 360º", "odometría perfecta", "lidar"),
+        option("Cámara de profundidad", "como el robot real: 63º, nada a menos de 0.45 m "
+               "y odometría con deriva", "camera"),
+    ])
+    if sensor is None:
+        return CANCEL
+    odom = "encoder" if sensor == "camera" else "world"
+    return [f"world:={world}", f"sim_sensor:={sensor}", f"sim_odom:={odom}"]
 
 
 def run_turtlebot_sim_camera():
     world = choose_world()
     if world == CANCEL or ros_already_running():
         return
-    roslaunch("turtlebot_emotion.launch", "gazebo:=true", "use_camera:=true", f"world:={world}")
+    roslaunch("turtlebot_emotion.launch", "gazebo:=true", "use_camera:=true", *world,
+              env=local_env())
 
 
 def run_turtlebot_real():
@@ -235,6 +263,7 @@ def run_turtlebot_real():
     if not master or "localhost" in master:
         lines.append(yellow("  Apunta a este PC: lanza en el portátil del TurtleBot2"))
         lines.append(dim("    roslaunch turtlebot_bringup minimal.launch  (y el driver del lidar)"))
+        lines.append(dim("    roslaunch turtlebot_bringup 3dsensor.launch  (cámara del robot)"))
     lines.append(dim("  Coloca el robot mirando hacia ti, a ~1 m."))
 
     confirm = choose("TurtleBot real", "¿Lanzar?", [
@@ -242,10 +271,12 @@ def run_turtlebot_real():
         option("No, volver", value=False),
     ], selected=False, footer="\n".join(lines))
     if confirm:
-        roslaunch("turtlebot_emotion.launch", "use_camera:=true")
+        roslaunch("turtlebot_emotion.launch", "use_camera:=true",
+                  "image_topic:=/camera/rgb/image_raw")
 
 
 EMOTIONS = [
+    ("parar", "se para del todo (hasta mandar otra emoción)"),
     ("feliz", "se acerca"),
     ("triste", "se acerca despacio"),
     ("enojo", "se esconde bajo la mesa"),
@@ -267,6 +298,39 @@ def stop_group(proc, name):
         os.killpg(proc.pid, signal.SIGKILL)
 
 
+# Publicador de /emotion_override en un proceso aparte: así cada panel usa el
+# master que toca (local o el del robot) y no hace falta rospy.init_node en el menú
+SENDER = r"""
+import sys, rospy
+from std_msgs.msg import String
+rospy.init_node("emotion_panel", anonymous=True, disable_signals=True)
+pub = rospy.Publisher("/emotion_override", String, queue_size=1, latch=True)
+for line in sys.stdin:
+    pub.publish(String(data=line.strip()))
+rospy.sleep(0.5)  # que llegue el último mensaje antes de salir
+"""
+
+
+class EmotionSender:
+    def __init__(self, env, log):
+        self.proc = subprocess.Popen([sys.executable, "-c", SENDER], stdin=subprocess.PIPE,
+                                     stdout=log, stderr=subprocess.STDOUT, env=env,
+                                     text=True, start_new_session=True)
+
+    def send(self, label):
+        if self.proc.poll() is None:
+            self.proc.stdin.write(label + "\n")
+            self.proc.stdin.flush()
+
+    def close(self):
+        if self.proc.poll() is None:
+            self.proc.stdin.close()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+
+
 def run_turtlebot_sim_manual():
     """Gazebo en segundo plano y un panel para mandar emociones.
 
@@ -275,60 +339,109 @@ def run_turtlebot_sim_manual():
     world = choose_world()
     if world == CANCEL or ros_already_running():
         return
-    os.makedirs(os.path.dirname(SIM_LOG), exist_ok=True)
-    log = open(SIM_LOG, "w")
+    env = local_env()
+    run_emotion_panel(
+        ["gazebo:=true", "use_camera:=false", *world], env, SIM_LOG,
+        camera_cmd=["rosrun", "human_detection", "ros_node.py"],
+        title="Emociones para el TurtleBot", subtitle="Gazebo en marcha",
+        starting="Arrancando Gazebo...", name="Gazebo")
+
+
+def run_turtlebot_real_manual():
+    """Robot real con un panel para mandar las emociones a mano (sin cámara)."""
+    master = os.environ.get("ROS_MASTER_URI", "")
+    clear()
+    print(dim(f"\n  Comprobando el robot en {master or '(ROS_MASTER_URI sin definir)'}..."))
+    problems = check_real_robot(master)
+    lines = [f"  ROS_MASTER_URI = {cyan(master or '(sin definir)')}"]
+    lines += [red("  ✗ " + p) for p in problems] or [green("  ✓ Llegan /scan y /odom del robot")]
+    lines += [dim("  Coloca el robot mirando hacia ti, a ~1 m, y deja sitio alrededor."),
+              dim("  Ten a mano el botón \"parar\" (o Ctrl+C) por si acaso.")]
+    entries = [option("Sí, lanzar", value=True), option("No, volver", value=False)]
+    confirm = choose("TurtleBot real · emociones a mano", "¿Lanzar?", entries,
+                     selected=False if problems else True, footer="\n".join(lines))
+    if not confirm:
+        return
+    run_emotion_panel(
+        ["use_camera:=false", "debug_dir:=" + os.path.expanduser("~/.ros/tfg_vueltas")],
+        dict(os.environ), REAL_LOG,
+        camera_cmd=["rosrun", "human_detection", "ros_node.py",
+                    "_image_topic:=/camera/rgb/image_raw"],
+        title="Emociones para el TurtleBot real", subtitle=master,
+        starting="Arrancando el nodo del robot...", name="el nodo del robot")
+
+
+def check_real_robot(master):
+    """Lista de problemas que impiden probar con el robot real (vacía si todo bien)."""
+    if not master or "localhost" in master or "127.0.0.1" in master:
+        return ["ROS_MASTER_URI apunta a este PC, no al robot"]
+    if not master_online(master):
+        return ["No hay roscore en " + master + " (¿minimal.launch en el robot?)"]
+    import rosgraph
+    try:
+        topics = dict(rosgraph.Master("/launch_menu", master_uri=master).getPublishedTopics(""))
+    except Exception as e:
+        return [f"No se pueden leer los topics ({e})"]
+    missing = [t for t in ("/scan", "/odom") if t not in topics]
+    problems = [f"No se publica {t}" for t in missing]
+    if "/scan" in missing:
+        problems.append("Lanza en el robot: roslaunch turtlebot_bringup 3dsensor.launch")
+    return problems
+
+
+def run_emotion_panel(launch_args, env, log_path, camera_cmd, title, subtitle, starting, name):
+    """Lanza turtlebot_emotion.launch en segundo plano y abre el panel de emociones."""
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    log = open(log_path, "w")
     proc = subprocess.Popen(
-        ["roslaunch", "human_detection", "turtlebot_emotion.launch",
-         "gazebo:=true", "use_camera:=false", f"world:={world}"],
-        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        ["roslaunch", "human_detection", "turtlebot_emotion.launch", *launch_args],
+        stdout=log, stderr=subprocess.STDOUT, start_new_session=True, env=env)
     camera = {"proc": None}
+    sender = None
 
     def start_camera():
         if camera["proc"] is None or camera["proc"].poll() is not None:
-            camera["proc"] = subprocess.Popen(
-                ["rosrun", "human_detection", "ros_node.py"],
-                stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            camera["proc"] = subprocess.Popen(camera_cmd, stdout=log, stderr=subprocess.STDOUT,
+                                              start_new_session=True, env=env)
 
     try:
-        import rosgraph
-        import rospy
-        from std_msgs.msg import String
-
         clear()
-        print(dim("\n  Arrancando Gazebo..."), end="", flush=True)
-        while not rosgraph.is_master_online():
+        print(dim("\n  " + starting), end="", flush=True)
+        while not master_online(env["ROS_MASTER_URI"]):
             if proc.poll() is not None:
-                pause(red(f"\n  roslaunch ha terminado. Mira el log: {SIM_LOG}"))
+                pause(red(f"\n  roslaunch ha terminado. Mira el log: {log_path}"))
                 return
             time.sleep(0.5)
-
-        rospy.init_node("launch_menu", anonymous=True, disable_signals=True)
-        pub = rospy.Publisher("/emotion_override", String, queue_size=1, latch=True)
-        emotion_panel(pub, proc, start_camera, lambda: camera["proc"])
+        sender = EmotionSender(env, log)
+        emotion_panel(sender, proc, start_camera, lambda: camera["proc"], title, subtitle,
+                      log_path)
         if proc.poll() not in (None, 0):
-            pause(red(f"\n  roslaunch ha terminado con error. Mira el log: {SIM_LOG}"))
+            pause(red(f"\n  roslaunch ha terminado con error. Mira el log: {log_path}"))
     except KeyboardInterrupt:
         pass
     finally:
         clear()
+        if sender is not None:
+            sender.send("parar")
+            sender.close()
         stop_group(camera["proc"], "la cámara")
-        stop_group(proc, "Gazebo")
+        stop_group(proc, name)
         log.close()
 
 
-def emotion_panel(pub, proc, start_camera, camera_proc):
-    from std_msgs.msg import String
-
+def emotion_panel(sender, proc, start_camera, camera_proc, title, subtitle, log_path):
     entries = [option(name, action, name) for name, action in EMOTIONS]
     entries += [section(""),
                 option("cámara", "abre la cámara y usa la emoción detectada", "auto"),
-                option("Salir", "cierra Gazebo", None)]
+                option("Salir", "para el robot y cierra todo", None)]
     last = None
     time.sleep(1.0)  # dar tiempo a que roslaunch falle si algo va mal
     while proc.poll() is None:
         cam = camera_proc()
         if last == "auto":
             footer = green("  ● Usando la emoción de la cámara")
+        elif last == "parar":
+            footer = yellow("  ■ Parado")
         elif last:
             footer = green(f"  ● Enviado: {last}")
         else:
@@ -337,15 +450,14 @@ def emotion_panel(pub, proc, start_camera, camera_proc):
             footer += red("\n  La cámara se ha cerrado (mira el log)")
         elif cam is not None:
             footer += dim("\n  Cámara abierta (se cierra al salir)")
-        footer += dim(f"\n  Log de ROS: {SIM_LOG}")
+        footer += dim(f"\n  Log de ROS: {log_path}")
 
-        value = choose("Emociones para el TurtleBot", "Gazebo en marcha", entries,
-                       selected=last or "feliz", footer=footer)
+        value = choose(title, subtitle, entries, selected=last or "feliz", footer=footer)
         if value is None:
             return
         if value == "auto":
             start_camera()
-        pub.publish(String(data=value))
+        sender.send(value)
         last = value
 
 
@@ -362,6 +474,7 @@ MENU = [
     option("Simulación con cámara", value=run_turtlebot_sim_camera),
     option("Simulación con emociones a elegir", value=run_turtlebot_sim_manual),
     option("Robot real", value=run_turtlebot_real),
+    option("Robot real con emociones a elegir", value=run_turtlebot_real_manual),
     section(""),
     option("Salir", value=None),
 ]

@@ -173,3 +173,66 @@ def test_frame_round_trip():
     pose = (1.0, -2.0, 0.7)
     x, y = su.robot_to_odom(0.3, -0.4, pose)
     assert np.allclose(su.odom_to_robot(x, y, pose), (0.3, -0.4))
+
+
+def test_narrow_sensor_sweep_rebuilds_360_view():
+    """Con un sensor de ~63º (cámara de profundidad) la mesa de detrás no se ve
+    desde la pose inicial, pero sí en el barrido virtual tras dar una vuelta."""
+    fov, n = math.radians(63), 720
+    half = fov / 2
+    obstacles = [PERSON] + TABLE_LEGS
+
+    def narrow_points(pose):
+        ranges = raycast(obstacles, ROOM, pose=pose, n=n)
+        ang, r, xs, ys = su.scan_to_points(ranges, 0.0, 2 * math.pi / n, 0.12, 3.5)
+        front = np.abs(np.arctan2(np.sin(ang), np.cos(ang))) <= half
+        return xs[front], ys[front]
+
+    start = (0.0, 0.0, 0.0)
+    xs, ys = narrow_points(start)
+    clusters = su.describe_clusters(xs, ys, su.cluster_points(xs, ys))
+    assert su.find_tables(su.find_legs(clusters), xs, ys) == []
+
+    all_x, all_y = [], []
+    for k in range(24):  # vuelta completa en pasos de 15º
+        pose = (0.0, 0.0, k * 2 * math.pi / 24)
+        xs, ys = narrow_points(pose)
+        ox, oy = su.robot_to_odom(xs, ys, pose)
+        all_x.append(ox)
+        all_y.append(oy)
+    ang, r = su.points_to_scan(np.concatenate(all_x), np.concatenate(all_y), start)
+    assert np.all(np.diff(ang) > 0)
+    xs, ys = r * np.cos(ang), r * np.sin(ang)
+    clusters = su.describe_clusters(xs, ys, su.cluster_points(xs, ys))
+    tables = su.find_tables(su.find_legs(clusters), xs, ys)
+    assert tables
+    assert tables[0]["mid_x"] < -0.9  # la mesa está detrás del robot
+
+
+def test_points_to_scan_priority_prefers_centered_points():
+    # Dos observaciones de la misma dirección: una cerca (vista de lado, prioridad
+    # alta) y otra lejos (vista de frente). Con prioridad gana la de frente.
+    xs, ys = [1.0, 2.0], [0.0, 0.0]
+    _, r = su.points_to_scan(xs, ys, (0.0, 0.0, 0.0))
+    assert np.isclose(r[0], 1.0)
+    _, r = su.points_to_scan(xs, ys, (0.0, 0.0, 0.0), priority=[0.5, 0.01])
+    assert np.isclose(r[0], 2.0)
+
+
+def test_match_leg_pair_uses_spacing():
+    def leg(x, y):
+        return {"x": x, "y": y}
+    a, b = leg(1.0, 0.45), leg(1.0, -0.45)
+    back = leg(1.6, 0.45)   # pata del fondo, más cerca de lo esperado para a
+    legs = [back, a, b]
+    # La estimación está desplazada 0.4 m hacia el fondo
+    pair = su.match_leg_pair(legs, (1.4, 0.45), (1.4, -0.45), spacing=0.9, gate=0.6)
+    assert pair == (a, b)
+    assert su.match_leg_pair(legs, (1.4, 0.45), (1.4, -0.45), spacing=0.9, gate=0.2) is None
+    assert su.match_leg_pair([a], (1.0, 0.45), (1.0, -0.45), spacing=0.9, gate=0.3) is None
+
+
+def test_segment_clearance():
+    xs, ys = np.array([1.0, 0.5]), np.array([0.3, -2.0])
+    assert np.isclose(su.segment_clearance(xs, ys, (0.0, 0.0), (2.0, 0.0)), 0.3)
+    assert su.segment_clearance([], [], (0.0, 0.0), (1.0, 0.0)) == math.inf
