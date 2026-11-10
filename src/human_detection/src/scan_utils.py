@@ -12,6 +12,19 @@ def normalize_angle(a):
     return math.atan2(math.sin(a), math.cos(a))
 
 
+def turn_rate(remaining, w_max, slowdown=math.radians(25), w_min=0.2, tol=math.radians(1)):
+    """Velocidad angular (positiva) para un giro medido con odometría.
+
+    `remaining` es lo que falta por girar (rad). Por debajo de `tol` devuelve 0
+    (giro terminado); en los últimos `slowdown` rad frena proporcionalmente sin
+    bajar de `w_min`, por debajo de la cual el Kobuki puede no moverse. Así no
+    se pasa al cortar de golpe a velocidad alta.
+    """
+    if remaining < tol:
+        return 0.0
+    return max(w_min, min(w_max, w_max * remaining / slowdown))
+
+
 def scan_to_points(ranges, angle_min, angle_increment, range_min, range_max):
     """Devuelve (angulos, distancias, xs, ys) solo de las lecturas válidas."""
     r = np.asarray(ranges, dtype=float)
@@ -83,10 +96,17 @@ def _point_segment_dist(px, py, ax, ay, bx, by):
     return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 
 
-def find_legs(clusters_info, max_width=0.09, max_dist=3.5, max_points=12):
-    """Grupos pequeños y aislados: candidatos a pata de mesa."""
+def find_legs(clusters_info, max_width=0.15, max_dist=3.5, max_points=None):
+    """Grupos pequeños y aislados: candidatos a pata de mesa.
+
+    El límite es de anchura, no de puntos: con la cámara de profundidad (o la
+    vuelta reconstruida a 0.5º) una pata gorda de cerca tiene decenas de puntos
+    y no por eso es una pared. `max_points` (None = sin límite) queda por si
+    algún sensor lo necesita.
+    """
     return [c for c in clusters_info
-            if c["width"] <= max_width and c["dist"] <= max_dist and c["n"] <= max_points
+            if c["width"] <= max_width and c["dist"] <= max_dist
+            and (max_points is None or c["n"] <= max_points)
             and c.get("isolated", True)]
 
 
@@ -145,7 +165,7 @@ def _corner_leg(a, b, legs, xs, ys, min_spacing, max_spacing, angle_tol):
     return None
 
 
-def find_tables(legs, xs, ys, min_spacing=0.4, max_spacing=1.6, angle_tol=math.radians(15)):
+def find_tables(legs, xs, ys, min_spacing=0.45, max_spacing=1.6, angle_tol=math.radians(15)):
     """Lados de mesa por donde puede pasar el robot.
 
     Un lado es una pareja de patas a-b con hueco libre entre ellas y una tercera
@@ -173,6 +193,49 @@ def find_tables(legs, xs, ys, min_spacing=0.4, max_spacing=1.6, angle_tol=math.r
             mx, my = (a["x"] + b["x"]) / 2, (a["y"] + b["y"]) / 2
             tables.append({"a": a, "b": b, "c": c, "mid_x": mx, "mid_y": my,
                            "dist": math.hypot(mx, my)})
+    tables.sort(key=lambda t: t["dist"])
+    return tables
+
+
+def find_two_leg_tables(legs, xs, ys, min_spacing=0.45, max_spacing=1.8, min_width=0.05,
+                        clearance=0.25, person_gap=0.45, depth=0.02):
+    """Mesas de dos patas gordas: pie central con base redonda o patas en T.
+
+    Solo tienen dos columnas (6-12 cm) a lo largo del eje de la mesa y el
+    tablero sobresale igual por los dos lados, así que el sitio para esconderse
+    es el punto medio entre ellas, entrando perpendicular. Cuentan parejas de
+    patas de al menos `min_width` de ancho (las de silla son más finas),
+    separadas entre `min_spacing` y `max_spacing`, con el hueco entre ellas
+    libre y sin nada a `clearance` del punto medio a ningún lado. Una pata con
+    otra pata gorda a menos de `person_gap` se descarta (serían las dos piernas
+    de una persona).
+
+    Devuelve el mismo formato que `find_tables`, con una pata c ficticia a
+    `depth` m de b hacia el lado contrario al robot (así se entra desde donde
+    está) y `two_leg` = True.
+    """
+    fat = [l for l in legs if l["width"] >= min_width]
+    fat = [l for l in fat if not any(
+        o is not l and math.hypot(o["x"] - l["x"], o["y"] - l["y"]) < person_gap for o in fat)]
+    tables = []
+    for i in range(len(fat)):
+        for j in range(i + 1, len(fat)):
+            a, b = fat[i], fat[j]
+            spacing = math.hypot(a["x"] - b["x"], a["y"] - b["y"])
+            if not (min_spacing <= spacing <= max_spacing):
+                continue
+            if not _segment_is_free(xs, ys, a, b):
+                continue
+            mx, my = (a["x"] + b["x"]) / 2, (a["y"] + b["y"]) / 2
+            nx, ny = -(b["y"] - a["y"]) / spacing, (b["x"] - a["x"]) / spacing
+            if nx * mx + ny * my < 0:     # normal hacia el lado contrario al robot
+                nx, ny = -nx, -ny
+            if len(xs) and np.min(np.hypot(np.asarray(xs) - mx, np.asarray(ys) - my)) < clearance:
+                continue
+            c = {"x": b["x"] + depth * nx, "y": b["y"] + depth * ny}
+            c.update(dist=math.hypot(c["x"], c["y"]), angle=math.atan2(c["y"], c["x"]))
+            tables.append({"a": a, "b": b, "c": c, "mid_x": mx, "mid_y": my,
+                           "dist": math.hypot(mx, my), "two_leg": True})
     tables.sort(key=lambda t: t["dist"])
     return tables
 
@@ -270,6 +333,16 @@ def segment_clearance(xs, ys, p0, p1):
     t = np.zeros_like(xs) if length2 == 0 else np.clip(
         ((xs - p0[0]) * dx + (ys - p0[1]) * dy) / length2, 0.0, 1.0)
     return float(np.min(np.hypot(xs - (p0[0] + t * dx), ys - (p0[1] + t * dy))))
+
+
+def move_with_segment(p, a, b, a2, b2):
+    """Lleva el punto p con el movimiento rígido que pasa el segmento a-b a a2-b2."""
+    ang = math.atan2(b2[1] - a2[1], b2[0] - a2[0]) - math.atan2(b[1] - a[1], b[0] - a[0])
+    c, s = math.cos(ang), math.sin(ang)
+    mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+    m2x, m2y = (a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2
+    dx, dy = p[0] - mx, p[1] - my
+    return (m2x + c * dx - s * dy, m2y + s * dx + c * dy)
 
 
 def match_leg_pair(legs, expected_a, expected_b, spacing, gate, spacing_tol=0.1):

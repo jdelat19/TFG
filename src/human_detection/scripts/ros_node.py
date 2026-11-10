@@ -6,7 +6,7 @@ import sys
 import cv2
 import numpy as np
 import rospy
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import String
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -36,7 +36,13 @@ class HumanROSNode:
         self.cap = None
         self.last_image = None
         if self.image_topic:
-            rospy.Subscriber(self.image_topic, Image, self.image_callback, queue_size=1, buff_size=2**24)
+            # .../compressed (JPEG) pesa ~20 veces menos por WiFi que la imagen en crudo
+            if self.image_topic.endswith("/compressed"):
+                rospy.Subscriber(self.image_topic, CompressedImage, self.compressed_callback,
+                                 queue_size=1, buff_size=2**24)
+            else:
+                rospy.Subscriber(self.image_topic, Image, self.image_callback, queue_size=1,
+                                 buff_size=2**24)
             rospy.loginfo("Usando la cámara del topic %s", self.image_topic)
         else:
             self.cap = cv2.VideoCapture(0)
@@ -61,6 +67,13 @@ class HumanROSNode:
             self.last_image = cv2.cvtColor(img, code) if code is not None else img
         except Exception as e:
             rospy.logwarn_throttle(5, "Imagen no soportada (%s): %s", msg.encoding, e)
+
+    def compressed_callback(self, msg):
+        img = cv2.imdecode(np.frombuffer(msg.data, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            rospy.logwarn_throttle(5, "No se pudo decodificar la imagen comprimida")
+            return
+        self.last_image = img
 
     def read_frame(self):
         if self.cap is not None:

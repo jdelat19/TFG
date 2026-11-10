@@ -13,6 +13,8 @@
     <arg name="gui" default="true" />
     <!-- Carpeta donde guardar las vueltas de búsqueda de mesa (vacío = no guardar) -->
     <arg name="debug_dir" default="" />
+    <!-- Ventana con el mapa mental del robot (mapa_mental_node.py) -->
+    <arg name="map" default="false" />
     <!-- Sensor y odometría de la simulación (ver turtlebot_sim.launch) -->
     <arg name="sim_sensor" default="lidar" />
     <arg name="sim_odom" default="world" />
@@ -54,4 +56,6 @@
         <param name="min_behavior_time" value="5.0" />
         <param name="neutral_hold" value="8.0" />
     </node>
+
+    <node if="$(arg map)" pkg="human_detection" type="mapa_mental_node.py" name="mapa_mental" output="screen" />
 </launch>

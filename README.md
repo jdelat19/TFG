@@ -113,7 +113,7 @@ El avatar muestra de fondo una imagen (`media/imagenes/<emoción>.png`) o un ví
 |---|---|
 | Feliz | Se acerca a la persona hasta 0,6 m |
 | Triste | Se acerca despacio y se queda a 0,9 m (acompañar) |
-| Enojo / Disgusto | Busca una mesa con el `/scan` (detecta sus patas) y se esconde debajo |
+| Enojo / Disgusto | Busca una mesa o silla donde quepa con el `/scan` (detecta sus patas) y se esconde debajo |
 | Miedo | Retrocede hasta quedar a 1,5 m de la persona |
 | Sorpresa | Da una vuelta sobre sí mismo |
 | Neutral | Se queda quieto mirando a la persona |
@@ -122,7 +122,10 @@ Al arrancar se supone que **la persona está delante del robot, a 1 m**; despué
 
 ### Esconderse debajo de una mesa
 El lidar solo ve un corte horizontal a 43 cm, así que la mesa se reconoce por sus patas:
-- Tres patas en ángulo recto (una esquina) con lados de 0,6 a 1,6 m. Las sillas (lados de unos 40 cm) no cuentan.
+- Tres patas en ángulo recto (una esquina) con lados de 45 cm a 1,6 m entre centros de pata, es decir, del tamaño del robot (35,4 cm) más el grosor de una pata y algo de holgura. Valen mesas y sillas; las que son más pequeñas que el robot no cuentan.
+- Mesas de **dos patas** (pie central con base redonda o patas en T): dos columnas de al menos 5 cm de ancho separadas entre 45 cm y 1,8 m, con el hueco entre ellas libre y nada a menos de 25 cm del punto medio. El robot entra perpendicular por su lado y se queda en el punto medio entre las columnas. Si una columna tiene otra pata gorda a menos de 45 cm se descarta (serían las piernas de una persona). Las mesas de 4 patas tienen prioridad.
+- Una pata puede tener hasta 15 cm de ancho; no hay límite de puntos, así que una columna gorda vista de cerca con la cámara no se toma por pared.
+- El pasillo de entrada tiene que dejar al menos 2 cm libres a cada lado del robot.
 - La cuarta pata tiene que verse o quedar tapada por otra pata de la misma mesa.
 - Dentro del rectángulo de patas no puede haber nada.
 - Los puntos sueltos de una pared vista de lado no cuentan como patas.
@@ -133,15 +136,22 @@ Para que la odometría no descuadre la mesa:
 - Los puntos del `/scan` se pasan al centro del robot con el TF del sensor (en el TurtleBot real la cámara va 8,7 cm por detrás y 5 cm a la izquierda del centro) y se colocan en odometría con la pose del instante del scan, no con la última.
 - En la vuelta solo se usan los puntos vistos cerca del centro de la cámara, así cada pata sale de unos pocos scans seguidos y no se emborrona aunque la odometría derive al girar.
 - Tras la vuelta se gira hacia la mesa y vuelve a localizar en directo las dos patas del lado por el que va a entrar (busca la pareja con la misma separación).
-- Mientras ve esas dos patas se guía por ellas y no por la odometría. Con la cámara (63°) se coloca lo bastante lejos de la mesa para verlas las dos (unos 0,8–1,1 m), se pone perpendicular al lado y entra siguiendo la recta que pasa por su centro. Los últimos ~50 cm, cuando ya no las ve, van por odometría, que en un tramo recto tan corto apenas se desvía.
+- Una vez confirmada, la ruta queda fija y no se recalcula: va por odometría hasta el punto de entrada (si la propia mesa está en medio, la rodea por sus esquinas), se pone perpendicular al lado y entra siguiendo la recta que pasa por su centro hasta el centro de la mesa. Con la cámara (63°) el punto de entrada está lo bastante lejos para ver las dos patas (unos 0,8–1,1 m).
+- Para que la odometría se desvíe poco, al esconderse va despacio (0,1 m/s y 0,5 rad/s; 6 cm/s al entrar), con aceleraciones suaves para que las ruedas no patinen, y se para un momento antes de girar y antes de entrar.
+- Al llegar (o cuando cree que ha llegado) se para y comprueba si está debajo, es decir, **entre 2 o 4 patas**, de forma aproximada (10 cm de margen): en el marco de la mesa tiene que estar entre las patas a lo ancho y entre el lado de entrada y el de enfrente. Si el `/scan` ve alguna de las patas, usa lo que ve; si no (la cámara no ve a menos de 45 cm), usa la odometría. Si no está debajo, corrige hacia el centro (hasta 2 veces) y, si sigue sin estarlo, sale y busca otra.
 
-Elige el lado más cercano, se coloca delante (rodeando las patas que se le crucen), se alinea y entra. Si se atasca al entrar, choca con el bumper o no consigue llegar, descarta esa mesa y busca otra. Si no encuentra ninguna, se aleja de la persona por la zona más despejada y vuelve a buscar; tras 3 intentos se queda quieto.
+Elige la mesa o silla **más grande** en la que quepa (y de ella, el lado más largo, que da más holgura al entrar). Si se atasca al entrar, choca con el bumper o no consigue llegar, descarta esa mesa y busca otra. Si no encuentra ninguna, se aleja de la persona por la zona más despejada y vuelve a buscar; tras 3 intentos se queda quieto.
 
 La cámara de profundidad no ve nada a menos de 45 cm, así que el filtro de seguridad solo puede parar el robot ante obstáculos a partir de ~40 cm del centro; por debajo de eso actúa el bumper del Kobuki.
 
 Con `debug_dir:=<carpeta>` en `turtlebot_emotion.launch` se guarda cada vuelta de búsqueda (`.npz` con los puntos en odometría y el barrido virtual) para revisar por qué no ha encontrado una mesa.
 
 **Limitación**: el lidar no ve la altura. Asientos y tableros por debajo de unos 45 cm no se ven, y una mesa demasiado baja solo se detecta al chocar con ella (a 0,1 m/s).
+
+### Mapa mental
+`mapa_mental_node.py` abre una ventana con lo que el robot "cree" que hay a su alrededor, visto desde arriba y en coordenadas de odometría. Muestra el `/scan` actual, la última vuelta de búsqueda, las patas candidatas, los lados de mesa encontrados, la mesa elegida con su pasillo de entrada, las mesas descartadas, la persona, el campo de visión y el camino recorrido. Arriba indica la emoción, el comportamiento y la fase. Las teclas `+`/`-` hacen zoom y `c` borra el camino.
+
+Se abre con `map:=true` en `turtlebot_emotion.launch`. El menú lo activa en todos los modos del TurtleBot. Los datos salen del topic `/turtlebot_emotion/map` (JSON), que el nodo solo calcula si hay alguien suscrito.
 
 ### Mundos de simulación
 | Mundo | Qué hay | Qué debería pasar con "enojo" |
@@ -234,9 +244,9 @@ El TurtleBot2 lleva sus drivers (Kobuki y cámara de profundidad) en el portáti
 5. Comprobar en el PC que llegan `/scan` y `/odom` (`rostopic list`, `rostopic hz /scan`).
 6. Colocar el robot mirando a la persona, a ~1 m, y lanzar `launch_menu.py` → **Robot real** (emoción de la cámara) o **Robot real con emociones a elegir** (emociones a mano).
 
-Con **Robot real con emociones a elegir** el menú comprueba antes que llegan `/scan` y `/odom`, lanza el nodo del robot sin cámara y abre un panel para mandar emociones a mano. La opción **parar** detiene el robot al momento; al salir del panel se manda "parar" y se cierra todo. El log queda en `~/.ros/log/tfg_menu_robot_real.log` y las vueltas de búsqueda de mesa en `~/.ros/tfg_vueltas/`.
+Con **Robot real con emociones a elegir** el menú comprueba antes que llegan `/scan` y `/odom`, lanza el nodo del robot, abre la cámara del robot (con el esqueleto y la emoción detectada, pero el robot solo obedece al panel), abre el mapa mental y muestra un panel para mandar emociones a mano. Si el robot publica `/camera/rgb/image_raw/compressed` se usa esa imagen, que pesa mucho menos por WiFi. La opción **parar** detiene el robot al momento; al salir del panel se manda "parar" y se cierra todo. El log queda en `~/.ros/log/tfg_menu_robot_real.log` y las vueltas de búsqueda de mesa en `~/.ros/tfg_vueltas/`.
 
-Para esconderse hace falta una mesa más alta que el robot (el TurtleBot2 mide unos 45 cm) con patas finas (menos de 9 cm) separadas entre 0,6 y 1,6 m, para que quepa la base de 35 cm. Con la cámara de profundidad las patas tienen que verse a la altura de la cámara (unos 30 cm del suelo), sin travesaños ni cajones a esa altura, y conviene dejar ~1,5 m libres delante del lado por el que va a entrar.
+Para esconderse hace falta una mesa o silla más alta que el robot (el TurtleBot2 mide unos 45 cm) con patas de menos de 15 cm separadas al menos 45 cm entre centros (o una mesa de pie central o en T con dos columnas), para que quepa la base de 35 cm. Una silla con el asiento más bajo que el robot se detecta igual; el robot choca al entrar, la descarta y busca otra. Con la cámara de profundidad las patas tienen que verse a la altura de la cámara (unos 30 cm del suelo), sin travesaños ni cajones a esa altura, y conviene dejar ~1,5 m libres delante del lado por el que va a entrar.
 
 ## Tests
 ```bash

@@ -236,3 +236,60 @@ def test_segment_clearance():
     xs, ys = np.array([1.0, 0.5]), np.array([0.3, -2.0])
     assert np.isclose(su.segment_clearance(xs, ys, (0.0, 0.0), (2.0, 0.0)), 0.3)
     assert su.segment_clearance([], [], (0.0, 0.0), (1.0, 0.0)) == math.inf
+
+
+def test_move_with_segment_rotates_and_translates():
+    # El lado a-b gira 90º alrededor del origen: la esquina c gira con él
+    p = su.move_with_segment((1.0, 1.0), (-0.5, 0.0), (0.5, 0.0), (0.0, -0.5), (0.0, 0.5))
+    assert np.allclose(p, (-1.0, 1.0))
+
+
+def test_turn_rate_frena_al_final_y_para_dentro_de_la_tolerancia():
+    w = 1.2
+    assert su.turn_rate(math.pi, w) == w                       # lejos: velocidad máxima
+    assert 0.2 < su.turn_rate(math.radians(10), w) < w          # cerca: frena
+    assert su.turn_rate(math.radians(2), w) == 0.2              # nunca por debajo del mínimo
+    assert su.turn_rate(math.radians(0.5), w) == 0.0            # dentro de la tolerancia: para
+    assert su.turn_rate(-0.1, w) == 0.0                         # pasado de largo: para
+
+
+def test_fat_legs_are_legs_not_walls():
+    # Columnas de 10 cm vistas de cerca con mucha resolución (cámara de
+    # profundidad): muchos puntos por pata, pero siguen siendo patas
+    columns = [(-0.8, 0.6, 0.05), (-0.8, -0.6, 0.05)]
+    ranges = raycast(columns, ROOM, n=2000)
+    _, _, _, _, clusters = process(ranges)
+    legs = su.find_legs(clusters)
+    assert len(legs) == 2
+    assert all(leg["n"] > 12 for leg in legs)
+
+
+def test_two_leg_table_is_found_and_entered_from_robot_side():
+    # Mesa de pie central o en T: dos columnas de 8 cm separadas 1.2 m
+    columns = [(1.5, 0.6, 0.04), (1.5, -0.6, 0.04)]
+    ranges = raycast(columns, ROOM, n=1000)
+    _, _, xs, ys, clusters = process(ranges)
+    legs = su.find_legs(clusters)
+    assert su.find_tables(legs, xs, ys) == []          # no hay esquina
+    tables = su.find_two_leg_tables(legs, xs, ys)
+    assert len(tables) == 1
+    t = tables[0]
+    assert abs(t["mid_x"] - 1.5) < 0.05 and abs(t["mid_y"]) < 0.05
+    assert t["c"]["x"] > t["mid_x"]                     # el interior queda lejos del robot
+
+
+def test_two_leg_table_needs_fat_legs_and_free_middle():
+    thin = [(1.5, 0.6, 0.012), (1.5, -0.6, 0.012)]      # patas de silla
+    _, _, xs, ys, clusters = process(raycast(thin, ROOM, n=1000))
+    assert su.find_two_leg_tables(su.find_legs(clusters), xs, ys) == []
+    columns = [(1.5, 0.6, 0.04), (1.5, -0.6, 0.04)]
+    box = [((1.65, -0.1), (1.65, 0.1))]                 # algo debajo, cerca del centro
+    _, _, xs, ys, clusters = process(raycast(columns, ROOM + box, n=1000))
+    assert su.find_two_leg_tables(su.find_legs(clusters), xs, ys) == []
+
+
+def test_person_legs_are_not_a_two_leg_table():
+    person = [(1.5, 0.12, 0.06), (1.5, -0.12, 0.06)]
+    other = [(1.5, 1.0, 0.06), (1.5, 0.78, 0.06)]
+    _, _, xs, ys, clusters = process(raycast(person + other, ROOM, n=1000))
+    assert su.find_two_leg_tables(su.find_legs(clusters), xs, ys) == []

@@ -24,6 +24,7 @@ catkin_install_python(PROGRAMS
   scripts/avatar_node_3d.py
   scripts/turtlebot_emotion_node.py
   scripts/launch_menu.py
+  scripts/mapa_mental_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

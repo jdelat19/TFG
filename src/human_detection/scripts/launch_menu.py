@@ -253,7 +253,7 @@ def run_turtlebot_sim_camera():
     world = choose_world()
     if world == CANCEL or ros_already_running():
         return
-    roslaunch("turtlebot_emotion.launch", "gazebo:=true", "use_camera:=true", *world,
+    roslaunch("turtlebot_emotion.launch", "gazebo:=true", "use_camera:=true", "map:=true", *world,
               env=local_env())
 
 
@@ -271,8 +271,8 @@ def run_turtlebot_real():
         option("No, volver", value=False),
     ], selected=False, footer="\n".join(lines))
     if confirm:
-        roslaunch("turtlebot_emotion.launch", "use_camera:=true",
-                  "image_topic:=/camera/rgb/image_raw")
+        roslaunch("turtlebot_emotion.launch", "use_camera:=true", "map:=true",
+                  f"image_topic:={robot_image_topic(master)}")
 
 
 EMOTIONS = [
@@ -341,14 +341,19 @@ def run_turtlebot_sim_manual():
         return
     env = local_env()
     run_emotion_panel(
-        ["gazebo:=true", "use_camera:=false", *world], env, SIM_LOG,
+        ["gazebo:=true", "use_camera:=false", "map:=true", *world], env, SIM_LOG,
         camera_cmd=["rosrun", "human_detection", "ros_node.py"],
         title="Emociones para el TurtleBot", subtitle="Gazebo en marcha",
         starting="Arrancando Gazebo...", name="Gazebo")
 
 
 def run_turtlebot_real_manual():
-    """Robot real con un panel para mandar las emociones a mano (sin cámara)."""
+    """Robot real con un panel para mandar las emociones a mano.
+
+    La cámara del robot se ve siempre (con el esqueleto y la emoción detectada),
+    pero el robot solo obedece a las emociones del panel. También se abre el
+    mapa mental.
+    """
     master = os.environ.get("ROS_MASTER_URI", "")
     clear()
     print(dim(f"\n  Comprobando el robot en {master or '(ROS_MASTER_URI sin definir)'}..."))
@@ -363,12 +368,31 @@ def run_turtlebot_real_manual():
     if not confirm:
         return
     run_emotion_panel(
-        ["use_camera:=false", "debug_dir:=" + os.path.expanduser("~/.ros/tfg_vueltas")],
-        dict(os.environ), REAL_LOG,
-        camera_cmd=["rosrun", "human_detection", "ros_node.py",
-                    "_image_topic:=/camera/rgb/image_raw"],
+        ["use_camera:=true", f"image_topic:={robot_image_topic(master)}", "map:=true",
+         "debug_dir:=" + os.path.expanduser("~/.ros/tfg_vueltas")],
+        dict(os.environ), REAL_LOG, camera_cmd=None,
         title="Emociones para el TurtleBot real", subtitle=master,
-        starting="Arrancando el nodo del robot...", name="el nodo del robot")
+        starting="Arrancando el nodo del robot...", name="el nodo del robot",
+        initial="parar")
+
+
+RGB_TOPIC = "/camera/rgb/image_raw"
+
+
+def robot_topics(master):
+    import rosgraph
+    try:
+        return dict(rosgraph.Master("/launch_menu", master_uri=master).getPublishedTopics(""))
+    except Exception:
+        return {}
+
+
+def robot_image_topic(master):
+    """Imagen de la cámara del robot: la comprimida si existe (mucho menos WiFi)."""
+    topics = robot_topics(master)
+    if RGB_TOPIC + "/compressed" in topics:
+        return RGB_TOPIC + "/compressed"
+    return RGB_TOPIC
 
 
 def check_real_robot(master):
@@ -377,11 +401,9 @@ def check_real_robot(master):
         return ["ROS_MASTER_URI apunta a este PC, no al robot"]
     if not master_online(master):
         return ["No hay roscore en " + master + " (¿minimal.launch en el robot?)"]
-    import rosgraph
-    try:
-        topics = dict(rosgraph.Master("/launch_menu", master_uri=master).getPublishedTopics(""))
-    except Exception as e:
-        return [f"No se pueden leer los topics ({e})"]
+    topics = robot_topics(master)
+    if not topics:
+        return ["No se pueden leer los topics del robot"]
     missing = [t for t in ("/scan", "/odom") if t not in topics]
     problems = [f"No se publica {t}" for t in missing]
     if "/scan" in missing:
@@ -389,8 +411,13 @@ def check_real_robot(master):
     return problems
 
 
-def run_emotion_panel(launch_args, env, log_path, camera_cmd, title, subtitle, starting, name):
-    """Lanza turtlebot_emotion.launch en segundo plano y abre el panel de emociones."""
+def run_emotion_panel(launch_args, env, log_path, camera_cmd, title, subtitle, starting, name,
+                      initial=None):
+    """Lanza turtlebot_emotion.launch en segundo plano y abre el panel de emociones.
+
+    Con `camera_cmd` el panel tiene la opción "cámara" para abrirla y usar su
+    emoción; sin él, no. `initial` se manda nada más arrancar.
+    """
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     log = open(log_path, "w")
     proc = subprocess.Popen(
@@ -413,8 +440,10 @@ def run_emotion_panel(launch_args, env, log_path, camera_cmd, title, subtitle, s
                 return
             time.sleep(0.5)
         sender = EmotionSender(env, log)
-        emotion_panel(sender, proc, start_camera, lambda: camera["proc"], title, subtitle,
-                      log_path)
+        if initial:
+            sender.send(initial)
+        emotion_panel(sender, proc, start_camera if camera_cmd else None,
+                      lambda: camera["proc"], title, subtitle, log_path, initial)
         if proc.poll() not in (None, 0):
             pause(red(f"\n  roslaunch ha terminado con error. Mira el log: {log_path}"))
     except KeyboardInterrupt:
@@ -429,12 +458,14 @@ def run_emotion_panel(launch_args, env, log_path, camera_cmd, title, subtitle, s
         log.close()
 
 
-def emotion_panel(sender, proc, start_camera, camera_proc, title, subtitle, log_path):
+def emotion_panel(sender, proc, start_camera, camera_proc, title, subtitle, log_path,
+                  last=None):
+    """Panel de emociones. Sin `start_camera` no se ofrece la opción "cámara"."""
     entries = [option(name, action, name) for name, action in EMOTIONS]
-    entries += [section(""),
-                option("cámara", "abre la cámara y usa la emoción detectada", "auto"),
-                option("Salir", "para el robot y cierra todo", None)]
-    last = None
+    entries.append(section(""))
+    if start_camera is not None:
+        entries.append(option("cámara", "abre la cámara y usa la emoción detectada", "auto"))
+    entries.append(option("Salir", "para el robot y cierra todo", None))
     time.sleep(1.0)  # dar tiempo a que roslaunch falle si algo va mal
     while proc.poll() is None:
         cam = camera_proc()
