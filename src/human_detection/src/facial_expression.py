@@ -17,11 +17,6 @@ try:
 except ImportError:
     ort = None
 
-try:
-    from fer.fer import FER
-except ImportError:
-    FER = None
-
 HSEMOTION_MODEL = "enet_b2_7"
 HSEMOTION_URL = ("https://github.com/HSE-asavchenko/face-emotion-recognition/raw/main/"
                  f"models/affectnet_emotions/onnx/{HSEMOTION_MODEL}.onnx")
@@ -66,8 +61,9 @@ class FERBackend:
              "sad": "Triste", "surprise": "Sorpresa", "neutral": "Neutral"}
 
     def __init__(self):
-        if FER is None:
-            raise ImportError("fer no está instalado")
+        # Se importa aquí: fer carga TensorFlow, que tarda varios segundos y
+        # solo hace falta si se usa esta alternativa
+        from fer.fer import FER
         self.detector = FER(mtcnn=True)
 
     def predict(self, frame, face_box):
@@ -128,6 +124,7 @@ class FacialExpressionDetector:
                     self.last_emotion = "Neutral"
                 return self.last_emotion, top_p
 
+            # Sin cara: se mantiene la última emoción unos 3 s (30 fotogramas)
             self.no_face_counter += 1
             if self.no_face_counter > 30:
                 self.emotion_buffer.clear()

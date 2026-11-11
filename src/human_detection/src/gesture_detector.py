@@ -1,10 +1,28 @@
+"""Procesado de cada fotograma de la cámara: puntos, gesto y emoción facial.
+
+GestureDetector.process_frame(imagen) hace, en orden:
+  1. MediaPipe Holistic: puntos del cuerpo (33), de la cara (468) y de cada
+     mano (21).
+  2. Gestos: aplica las reglas de gestures.py y se queda con el de más
+     prioridad. Un gesto solo se da por bueno si aparece en al menos
+     `temporal_threshold` de los últimos `temporal_window` fotogramas, para
+     que no parpadee.
+  3. Emoción facial: recorta la cara con la malla de MediaPipe y la clasifica
+     con facial_expression.py.
+  4. Dibuja el esqueleto, el gesto y la emoción sobre la imagen.
+
+Devuelve la imagen dibujada y un dict con el gesto, la emoción y los puntos de
+las manos (lo que human_detector_node.py publica en /human_state).
+"""
+from collections import Counter, deque
+from typing import List, Tuple
+
 import cv2
 import mediapipe as mp
 import numpy as np
-from typing import List, Tuple
-from gestures import BaseGesture, DEFAULT_GESTURES
+
 from facial_expression import FacialExpressionDetector
-from collections import deque, Counter
+from gestures import DEFAULT_GESTURES, BaseGesture
 
 
 class GestureDetector:
@@ -13,6 +31,7 @@ class GestureDetector:
                  enable_emotion_detection=True, emotion_backend="hsemotion"):
         self.mp_holistic = mp.solutions.holistic
         self.mp_drawing = mp.solutions.drawing_utils
+        # Suavizado: un gesto cuenta si sale en 7 de los últimos 12 fotogramas
         self.temporal_window = 12
         self.temporal_threshold = 7
         self.gesture_buffer = deque(maxlen=self.temporal_window)
@@ -36,6 +55,11 @@ class GestureDetector:
             self.emotion_detector = None
 
     def landmarks_to_list(self, landmarks, image_shape):
+        """Landmarks de MediaPipe -> lista de dicts serializable a JSON.
+
+        x, y, z normalizados (0-1, z relativa a la muñeca), px, py en píxeles y
+        v = visibilidad. Es lo que usa el avatar 3D para dibujar las manos.
+        """
         if landmarks is None:
             return []
         h, w = image_shape
@@ -65,20 +89,22 @@ class GestureDetector:
         return (x0, y0, x1, y1) if x1 > x0 and y1 > y0 else None
 
     def temporal_smoothing(self, detected_gesture: str) -> str:
+        """Gesto más repetido en la ventana si llega al umbral; "Ninguno" si no."""
         self.gesture_buffer.append(detected_gesture)
-        
+
         if len(self.gesture_buffer) < self.temporal_window:
             return "Ninguno"
-        
+
         counter = Counter(self.gesture_buffer)
         gesture, count = counter.most_common(1)[0]
-        
+
         if gesture != "Ninguno" and count >= self.temporal_threshold:
             return gesture
-        
+
         return "Ninguno"
-    
+
     def detect_gestures(self, results, image_shape: tuple) -> list:
+        """[nombre] del gesto de mayor prioridad que se cumple ([] si ninguno)."""
         detected_gestures = []
 
         for gesture in self.gestures:
@@ -93,8 +119,9 @@ class GestureDetector:
 
         highest_priority_gesture = max(detected_gestures, key=lambda g: g.priority)
         return [highest_priority_gesture.name]
-    
+
     def process_frame(self, image) -> Tuple[np.ndarray, dict]:
+        """Procesa un fotograma BGR. Devuelve (imagen dibujada, datos detectados)."""
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.holistic.process(image_rgb)
 
@@ -120,16 +147,16 @@ class GestureDetector:
         }
 
         return image, payload
-    
+
     def display_info(self, image, emotion_data: dict):
         """Mostrar información en pantalla"""
         cv2.putText(image, f"Gesto: {self.current_gesture}",
                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 255, 0), 2)
-        
+
         if self.enable_emotion_detection:
             y_position = 100
             emotion_text = f"Emocion: {emotion_data['emotion']}"
-            
+
             color = (0, 255, 255) if emotion_data['emotion'] != "Desactivado" else (100, 100, 100)
             cv2.putText(image, emotion_text, (10, y_position),
                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
@@ -141,7 +168,7 @@ class GestureDetector:
                 text = "  ".join(f"{name} {p:.2f}" for name, p in top3)
                 cv2.putText(image, text, (10, y_position + 32),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
-    
+
     def draw_landmarks(self, image, results):
         """Dibujar landmarks según configuración"""
         if self.draw_face and results.face_landmarks:
@@ -150,14 +177,14 @@ class GestureDetector:
                 self.mp_drawing.DrawingSpec(color=(80, 110, 10), thickness=1, circle_radius=1),
                 self.mp_drawing.DrawingSpec(color=(80, 256, 121), thickness=1, circle_radius=1)
             )
-        
+
         if self.draw_pose and results.pose_landmarks:
             self.mp_drawing.draw_landmarks(
                 image, results.pose_landmarks, self.mp_holistic.POSE_CONNECTIONS,
                 self.mp_drawing.DrawingSpec(color=(80, 22, 10), thickness=2, circle_radius=2),
                 self.mp_drawing.DrawingSpec(color=(80, 44, 121), thickness=2, circle_radius=2)
             )
-        
+
         if self.draw_hands:
             if results.left_hand_landmarks:
                 self.mp_drawing.draw_landmarks(
@@ -171,7 +198,7 @@ class GestureDetector:
                     self.mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=2),
                     self.mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2)
                 )
-    
+
     def close(self):
         """Liberar recursos"""
         if self.holistic:

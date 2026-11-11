@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
-"""Menú para lanzar las distintas partes del TFG.
+"""Menú de terminal para lanzar todas las partes del proyecto.
+
+Uso:  rosrun human_detection launch_menu.py   (run.sh lo abre en la terminal 1)
 
 Se maneja con las flechas ↑/↓ y Enter (o pulsando el número de la opción).
+Cada opción acaba llamando a roslaunch con los argumentos adecuados:
+
+  Avatar (1-4)                       human_detection.launch mode:=N [use_voice:=true]
+  Simulación con cámara              turtlebot_emotion.launch gazebo:=true
+  Simulación con emociones a elegir  igual, sin cámara, y un panel que publica
+                                     en /emotion_override
+  Robot real                         turtlebot_emotion.launch con la cámara del robot
+  Robot real con emociones a elegir  igual, con el panel (el robot obedece al panel)
+
+Las simulaciones siempre usan un roscore local (local_env) para no mover el
+robot real por error si ROS_MASTER_URI apunta a él.
 """
 import os
 import select
@@ -50,7 +63,7 @@ def header(title, subtitle=""):
 
 
 # ---------------------------------------------------------------------------
-# Selección con flechas
+# Selección con flechas (interfaz de terminal sin dependencias)
 # ---------------------------------------------------------------------------
 def read_key():
     """Lee una tecla sin esperar a Enter: 'up', 'down', 'enter', 'quit' o el carácter."""
@@ -196,7 +209,7 @@ def choose_microphone():
 
 
 # ---------------------------------------------------------------------------
-# Acciones
+# Acciones de cada opción del menú
 # ---------------------------------------------------------------------------
 def run_avatar(mode, voice):
     args = ["human_detection.launch", f"mode:={mode}", f"use_voice:={str(voice).lower()}"]
@@ -342,7 +355,7 @@ def run_turtlebot_sim_manual():
     env = local_env()
     run_emotion_panel(
         ["gazebo:=true", "use_camera:=false", "map:=true", *world], env, SIM_LOG,
-        camera_cmd=["rosrun", "human_detection", "ros_node.py"],
+        camera_cmd=["rosrun", "human_detection", "human_detector_node.py"],
         title="Emociones para el TurtleBot", subtitle="Gazebo en marcha",
         starting="Arrancando Gazebo...", name="Gazebo")
 
@@ -514,7 +527,8 @@ MENU = [
 def main():
     if not shutil.which("roslaunch"):
         print(red("No se encuentra roslaunch. Carga el entorno primero:"))
-        print("  source /opt/ros/noetic/setup.bash && source ~/Escritorio/TFG/devel/setup.bash")
+        print("  source /opt/ros/noetic/setup.bash && source <carpeta del proyecto>/devel/setup.bash")
+        print("  (install.sh lo añade a ~/.bashrc: abre una terminal nueva)")
         sys.exit(1)
 
     last = None

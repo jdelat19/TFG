@@ -1,13 +1,13 @@
-# Requisitos de Python del proyecto (probado en Ubuntu 20.04 + ROS Noetic, Python 3.8)
-# Lo más fácil es ./install.sh (usa requirements-lock.txt, con las versiones exactas).
-# A mano: pip3 install --user -r requirements.txt
+# Dependencias directas de Python (Ubuntu 20.04 + ROS Noetic, Python 3.8).
+# No instalar a mano: ./install.sh crea .venv con requirements-lock.txt, que tiene
+# estas y todas sus dependencias con la versión exacta del PC de desarrollo.
 #
-# Paquetes del sistema necesarios (no se instalan con pip):
-#   sudo apt install ros-noetic-desktop-full libportaudio2 ffmpeg
-#   (desktop-full ya trae gazebo_ros, gazebo_plugins, xacro y robot_state_publisher;
-#    el TurtleBot2 de la simulación es un modelo propio en urdf/turtlebot2.urdf.xacro)
-#   (rospy, std_msgs, sensor_msgs, geometry_msgs, nav_msgs y rosgraph vienen con ROS)
-#   libportaudio2 lo necesita sounddevice; ffmpeg lo usa media/make_disgusto.py
+# Paquetes del sistema (los instala install.sh con apt):
+#   ros-noetic-desktop-full   ROS, Gazebo, xacro, tf2, rospy y los mensajes estándar
+#   ros-noetic-kobuki-msgs    bumper del TurtleBot2
+#   libportaudio2             micrófono (sounddevice)
+#   ffmpeg                    audio de Whisper
+#   terminator, sshpass       run.sh (robot real)
 
 # Base (estas versiones deben ir juntas, otras combinaciones dan conflictos)
 numpy==1.24.3
@@ -29,9 +29,9 @@ transformers==4.46.3
 openai-whisper==20250625
 sounddevice==0.5.5
 
-# Avatar 3D (avatar_node_3d.py)
+# Avatar 3D (avatar_node.py)
 PyOpenGL==3.1.0
 glfw==2.10.0
 
-# Tests (python3 -m pytest test/)
+# Tests (cd src/human_detection && ../../.venv/bin/python -m pytest test/)
 pytest

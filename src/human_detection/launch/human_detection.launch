@@ -1,40 +1,37 @@
 <launch>
+    <!--
+      Avatar: cámara -> gesto y emoción -> ventana con las manos en 3D sobre una
+      imagen o un vídeo. Con use_voice también se analiza la voz.
 
+      mode 1  Cara            -> imagen de la emoción
+      mode 2  Voz o cara      -> imagen de la emoción
+      mode 3  Voz o cara      -> vídeo de la emoción
+      mode 4  Cara + gesto    -> vídeo del gesto (o de la emoción)
+
+      Ejemplo: roslaunch human_detection human_detection.launch mode:=3 use_voice:=true microphone:=14
+    -->
     <arg name="mode" default="1" />
     <arg name="use_voice" default="false" />
+    <!-- Índice de sounddevice (python3 -m sounddevice lista los dispositivos) -->
     <arg name="microphone" default="14" />
+    <!-- Carpeta con imagenes/ y videos/ del avatar -->
+    <arg name="base_path" default="$(find human_detection)/media" />
 
-    <arg name="base_path"
-         default="$(env HOME)/Escritorio/TFG/src/human_detection/media" />
-
-    <node pkg="human_detection"
-          type="ros_node.py"
-          name="human_detector"
-          output="screen">
-
+    <!-- Cámara -> /human_state -->
+    <node pkg="human_detection" type="human_detector_node.py" name="human_detector" output="screen">
         <param name="mode" value="$(arg mode)" />
-
     </node>
 
-    <node pkg="human_detection"
-          type="avatar_node_3d.py"
-          name="avatar_node_3d"
-          output="screen">
-
+    <!-- /human_state -> ventana del avatar -->
+    <node pkg="human_detection" type="avatar_node.py" name="avatar_node" output="screen">
         <param name="mode" value="$(arg mode)" />
         <param name="base_path" value="$(arg base_path)" />
-
     </node>
 
+    <!-- Micrófono -> /voice_emotion -->
     <group if="$(arg use_voice)">
-
-        <node pkg="human_detection"
-              type="voice_node.py"
-              name="voice_emotion_node"
-              output="screen">
+        <node pkg="human_detection" type="voice_node.py" name="voice_emotion_node" output="screen">
             <param name="microphone" value="$(arg microphone)" />
         </node>
-
     </group>
-
 </launch>

@@ -1,16 +1,59 @@
+"""Reglas de cada gesto a partir de los puntos de MediaPipe Holistic.
+
+Cada gesto es una clase con un método `check(results, image_shape)` que
+devuelve True si el gesto aparece en el fotograma. `results` es la salida de
+MediaPipe Holistic (pose_landmarks, face_landmarks, left/right_hand_landmarks)
+e `image_shape` es (alto, ancho) de la imagen.
+
+Si en un fotograma se cumplen varios gestos, gana el de mayor `priority`
+(ver GestureDetector.detect_gestures). Los umbrales en píxeles están
+pensados para una webcam de 640x480 a ~1 m.
+
+Para añadir un gesto: crear una subclase de BaseGesture (o de
+HandShapeGesture si solo depende de la forma de la mano) y añadirla a
+DEFAULT_GESTURES al final del fichero. Los índices de los landmarks del
+cuerpo están en la tabla del README del paquete.
+"""
 from abc import ABC, abstractmethod
 from collections import deque
+from typing import Optional, Tuple
 
-from utils import calculate_distance, get_landmark_coords
+import numpy as np
+
+
+# =============================================================================
+# UTILIDADES GEOMÉTRICAS
+# =============================================================================
+
+def calculate_distance(point1: Tuple, point2: Tuple) -> float:
+    """Distancia euclídea en píxeles; infinita si falta alguno de los puntos."""
+    if point1 is None or point2 is None:
+        return float("inf")
+    return float(np.hypot(point1[0] - point2[0], point1[1] - point2[1]))
+
+
+def get_landmark_coords(landmarks, landmark_idx: int, image_shape: Tuple) -> Optional[Tuple]:
+    """(x, y) en píxeles del landmark `landmark_idx`, o None si no se ha detectado."""
+    if landmarks is None:
+        return None
+    try:
+        landmark = landmarks.landmark[landmark_idx]
+        h, w = image_shape
+        return (int(landmark.x * w), int(landmark.y * h))
+    except (IndexError, AttributeError):
+        return None
+
 
 class BaseGesture(ABC):
+    """Gesto con nombre (el que se publica en /human_state) y prioridad."""
+
     def __init__(self, name: str):
         self.name = name
         self.priority = 1
-        
+
     @abstractmethod
     def check(self, results, image_shape: tuple) -> bool:
-        pass
+        """True si el gesto aparece en este fotograma."""
 
 
 # =============================================================================
@@ -18,44 +61,48 @@ class BaseGesture(ABC):
 # =============================================================================
 
 class CrossedArmsGesture(BaseGesture):
+    """Brazos cruzados: muñecas juntas (< 120 px) y codos separados (> 150 px)."""
+
     def __init__(self):
         super().__init__("cruzar_brazos")
         self.priority = 4
-    
+
     def check(self, results, image_shape):
         left_wrist = get_landmark_coords(results.pose_landmarks, 15, image_shape)
         right_wrist = get_landmark_coords(results.pose_landmarks, 16, image_shape)
         left_elbow = get_landmark_coords(results.pose_landmarks, 13, image_shape)
         right_elbow = get_landmark_coords(results.pose_landmarks, 14, image_shape)
-        
+
         if not all([left_wrist, right_wrist, left_elbow, right_elbow]):
             return False
-        
+
         # Cruzar brazos: muñecas cerca, codos separados
         wrists_close = calculate_distance(left_wrist, right_wrist) < 120
         elbows_far = calculate_distance(left_elbow, right_elbow) > 150
-        
+
         return wrists_close and elbows_far
 
 class OpenArmsGesture(BaseGesture):
+    """Brazos abiertos: muñecas a más de 200 px de los hombros, a los lados y por encima de la cintura."""
+
     def __init__(self):
         super().__init__("brazos_abiertos")
-    
+
     def check(self, results, image_shape):
         left_wrist = get_landmark_coords(results.pose_landmarks, 15, image_shape)
         right_wrist = get_landmark_coords(results.pose_landmarks, 16, image_shape)
         left_shoulder = get_landmark_coords(results.pose_landmarks, 11, image_shape)
         right_shoulder = get_landmark_coords(results.pose_landmarks, 12, image_shape)
-        
+
         if not all([left_wrist, right_wrist, left_shoulder, right_shoulder]):
             return False
-            
+
         # Brazos extendidos hacia los lados
         left_arm_extended = abs(left_wrist[0] - left_shoulder[0]) > 200
         right_arm_extended = abs(right_wrist[0] - right_shoulder[0]) > 200
         # Y manos por encima de la cintura
         hands_above_waist = left_wrist[1] < left_shoulder[1] + 150 and right_wrist[1] < right_shoulder[1] + 150
-        
+
         return left_arm_extended and right_arm_extended and hands_above_waist
 
 # =============================================================================
@@ -63,10 +110,12 @@ class OpenArmsGesture(BaseGesture):
 # =============================================================================
 
 class ScratchNeckGesture(BaseGesture):
+    """Rascarse el cuello: muñeca o índice en la zona entre los hombros y algo por debajo."""
+
     def __init__(self):
         super().__init__("rascarse_cuello")
         self.priority = 6
-    
+
     def check(self, results, image_shape):
         left_shoulder = get_landmark_coords(results.pose_landmarks, 11, image_shape)
         right_shoulder = get_landmark_coords(results.pose_landmarks, 12, image_shape)
@@ -89,6 +138,8 @@ class ScratchNeckGesture(BaseGesture):
         return False
 
 class BiteNailsGesture(BaseGesture):
+    """Morderse las uñas: alguna punta de dedo dentro de la caja de la boca."""
+
     def __init__(self):
         super().__init__("morderse_unas")
         self.priority = 9
@@ -132,10 +183,12 @@ class BiteNailsGesture(BaseGesture):
 
 
 class HandsFaceGesture(BaseGesture):
+    """Manos en la cara: muñeca o índice dentro de la caja de la cara (frente, mentón y mejillas)."""
+
     def __init__(self):
         super().__init__("manos_en_cara")
         self.priority = 6
-    
+
     def check(self, results, image_shape):
         if not results.face_landmarks:
             return False
@@ -143,7 +196,7 @@ class HandsFaceGesture(BaseGesture):
         face_points_ids = [10, 152, 234, 454]  # frente, mentón, mejillas
         face_coords = [get_landmark_coords(results.face_landmarks, idx, image_shape)
                        for idx in face_points_ids]
-        
+
         if not all(face_coords):
             return False
 
@@ -164,22 +217,24 @@ class HandsFaceGesture(BaseGesture):
 
 
 class TouchHeadGesture(BaseGesture):
+    """Tocarse la cabeza: muñeca a menos de 120 px de la nariz (landmark 0 del cuerpo)."""
+
     def __init__(self):
         super().__init__("tocarse_cabeza")
         self.priority = 5
 
     def check(self, results, image_shape):
         head_top = get_landmark_coords(results.pose_landmarks, 0, image_shape)
-        
+
         if not head_top:
             return False
-        
+
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 wrist = get_landmark_coords(hand_landmarks, 0, image_shape)
                 if wrist and calculate_distance(wrist, head_top) < 120:
                     return True
-        
+
         return False
 
 # =============================================================================
@@ -187,17 +242,19 @@ class TouchHeadGesture(BaseGesture):
 # =============================================================================
 
 class HeadTiltGesture(BaseGesture):
+    """Cabeza inclinada: la línea entre los ojos tiene una pendiente mayor de 0.3 (~17º)."""
+
     def __init__(self):
         super().__init__("cabeza_inclinada")
         self.priority = 9
-    
+
     def check(self, results, image_shape):
         left_eye = get_landmark_coords(results.face_landmarks, 33, image_shape)
         right_eye = get_landmark_coords(results.face_landmarks, 263, image_shape)
-        
+
         if not all([left_eye, right_eye]):
             return False
-            
+
         # Calcular inclinación basada en la posición de los ojos
         eye_slope = abs((right_eye[1] - left_eye[1]) / (right_eye[0] - left_eye[0] + 0.001))
         return eye_slope > 0.3
@@ -207,52 +264,58 @@ class HeadTiltGesture(BaseGesture):
 # =============================================================================
 
 class ThumbsUpGesture(BaseGesture):
+    """Pulgar arriba: la punta del pulgar por encima de la muñeca y del índice."""
+
     def __init__(self):
         super().__init__("pulgar_arriba")
-    
+
     def check(self, results, image_shape):
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 thumb_tip = get_landmark_coords(hand_landmarks, 4, image_shape)
                 index_tip = get_landmark_coords(hand_landmarks, 8, image_shape)
                 wrist = get_landmark_coords(hand_landmarks, 0, image_shape)
-                
+
                 if all([thumb_tip, index_tip, wrist]):
                     # Pulgar extendido hacia arriba respecto a la muñeca
                     thumb_above_wrist = thumb_tip[1] < wrist[1] - 50
                     # Pulgar por encima del índice
                     thumb_above_index = thumb_tip[1] < index_tip[1] - 20
-                    
+
                     if thumb_above_wrist and thumb_above_index:
                         return True
-        
+
         return False
 
 class PointingGesture(BaseGesture):
+    """Señalar: índice estirado hacia un lado y el dedo corazón doblado."""
+
     def __init__(self):
         super().__init__("señalar")
-    
+
     def check(self, results, image_shape):
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
                 index_tip = get_landmark_coords(hand_landmarks, 8, image_shape)
                 index_mcp = get_landmark_coords(hand_landmarks, 5, image_shape)
                 middle_tip = get_landmark_coords(hand_landmarks, 12, image_shape)
-                
+
                 if all([index_tip, index_mcp, middle_tip]):
                     # Índice extendido y otros dedos doblados
                     index_extended = abs(index_tip[0] - index_mcp[0]) > 60
                     middle_bent = middle_tip[1] > index_mcp[1] + 30
-                    
+
                     if index_extended and middle_bent:
                         return True
-        
+
         return False
 
 class PeaceSignGesture(BaseGesture):
+    """Seña de paz: índice y corazón hacia arriba, anular y meñique doblados."""
+
     def __init__(self):
         super().__init__("paz")
-    
+
     def check(self, results, image_shape):
         for hand_landmarks in [results.left_hand_landmarks, results.right_hand_landmarks]:
             if hand_landmarks:
@@ -261,7 +324,7 @@ class PeaceSignGesture(BaseGesture):
                 ring_tip = get_landmark_coords(hand_landmarks, 16, image_shape)
                 pinky_tip = get_landmark_coords(hand_landmarks, 20, image_shape)
                 wrist = get_landmark_coords(hand_landmarks, 0, image_shape)
-                
+
                 if all([index_tip, middle_tip, ring_tip, pinky_tip, wrist]):
                     # Índice y medio extendidos
                     index_extended = index_tip[1] < wrist[1] - 50
@@ -269,29 +332,33 @@ class PeaceSignGesture(BaseGesture):
                     # Anular y meñique doblados
                     ring_bent = ring_tip[1] > wrist[1] - 20
                     pinky_bent = pinky_tip[1] > wrist[1] - 20
-                    
+
                     if index_extended and middle_extended and ring_bent and pinky_bent:
                         return True
-        
+
         return False
 
 class HandsTogetherGesture(BaseGesture):
+    """Manos juntas: las dos muñecas a menos de 100 px."""
+
     def __init__(self):
         super().__init__("manos_juntas")
-    
+
     def check(self, results, image_shape):
         left_wrist = get_landmark_coords(results.pose_landmarks, 15, image_shape)
         right_wrist = get_landmark_coords(results.pose_landmarks, 16, image_shape)
-        
+
         if left_wrist and right_wrist:
             return calculate_distance(left_wrist, right_wrist) < 100
-        
+
         return False
-    
+
 class HandsOnHipsGesture(BaseGesture):
+    """Manos en las caderas: cada muñeca a menos de 100 px de su cadera."""
+
     def __init__(self):
         super().__init__("manos_en_caderas")
-    
+
     def check(self, results, image_shape):
         lw = get_landmark_coords(results.pose_landmarks, 15, image_shape)
         rw = get_landmark_coords(results.pose_landmarks, 16, image_shape)
@@ -359,6 +426,8 @@ class HandShapeGesture(BaseGesture):
 
 
 class FistGesture(HandShapeGesture):
+    """Puño: ningún dedo extendido."""
+
     def __init__(self):
         super().__init__("puño", priority=2)
 
@@ -367,6 +436,8 @@ class FistGesture(HandShapeGesture):
 
 
 class OpenHandGesture(HandShapeGesture):
+    """Mano abierta: los cinco dedos extendidos."""
+
     def __init__(self):
         super().__init__("mano_abierta", priority=2)
 
@@ -375,6 +446,8 @@ class OpenHandGesture(HandShapeGesture):
 
 
 class OkGesture(HandShapeGesture):
+    """OK: pulgar e índice tocándose y los otros tres dedos extendidos."""
+
     def __init__(self):
         super().__init__("ok")
 
@@ -384,6 +457,8 @@ class OkGesture(HandShapeGesture):
 
 
 class RockGesture(HandShapeGesture):
+    """Cuernos: índice y meñique extendidos, corazón y anular doblados."""
+
     def __init__(self):
         super().__init__("cuernos")
 
@@ -393,6 +468,8 @@ class RockGesture(HandShapeGesture):
 
 
 class CallMeGesture(HandShapeGesture):
+    """Llámame: pulgar y meñique extendidos, el resto doblados."""
+
     def __init__(self):
         super().__init__("llamame")
 
@@ -402,6 +479,8 @@ class CallMeGesture(HandShapeGesture):
 
 
 class ThumbsDownGesture(HandShapeGesture):
+    """Pulgar abajo: solo el pulgar extendido y apuntando hacia abajo."""
+
     def __init__(self):
         super().__init__("pulgar_abajo")
 
@@ -458,16 +537,16 @@ DEFAULT_GESTURES = [
     OpenArmsGesture(),
     HandsOnHipsGesture(),
     HandsTogetherGesture(),
-    
+
     # Gestos de manos y cara
     ScratchNeckGesture(),
     BiteNailsGesture(),
     HandsFaceGesture(),
     TouchHeadGesture(),
-    
+
     # Gestos faciales
     HeadTiltGesture(),
-    
+
     # Gestos personalizados
     ThumbsUpGesture(),
     PointingGesture(),

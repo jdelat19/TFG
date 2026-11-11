@@ -31,3 +31,6 @@ CMakeLists.txt.user
 
 # Sistema
 .DS_Store
+
+# Código y recursos retirados (se guardan en local, fuera de git)
+discontinued/

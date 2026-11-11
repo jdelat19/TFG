@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(human_detection)
 
+# Paquete solo de Python: no se compila nada, catkin solo genera los
+# lanzadores de los nodos y el setup.bash del workspace
+
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
@@ -17,14 +20,14 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+# Nodos de ROS (scripts/). Los módulos de src/ los importan con sys.path
 catkin_install_python(PROGRAMS
-  scripts/ros_node.py
-  scripts/avatar_node.py
+  scripts/human_detector_node.py
   scripts/voice_node.py
-  scripts/avatar_node_3d.py
+  scripts/avatar_node.py
   scripts/turtlebot_emotion_node.py
+  scripts/mental_map_node.py
   scripts/launch_menu.py
-  scripts/mapa_mental_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -37,6 +40,10 @@ install(DIRECTORY urdf
 )
 
 install(DIRECTORY worlds
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(DIRECTORY config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

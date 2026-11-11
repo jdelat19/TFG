@@ -1,8 +1,12 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>human_detection</name>
-  <version>0.0.0</version>
-  <description>The human_detection package</description>
+  <version>1.0.0</version>
+  <description>
+    Detección de gestos y emociones (cara y voz) en tiempo real con MediaPipe,
+    HSEmotion y Whisper. La emoción detectada mueve un avatar 3D o un
+    TurtleBot2 (real o en Gazebo) que reacciona a ella.
+  </description>
 
   <maintainer email="javier@todo.todo">javier</maintainer>
   <license>MIT</license>
@@ -15,19 +19,18 @@
   <depend>sensor_msgs</depend>
   <depend>nav_msgs</depend>
 
+  <!-- Simulación del TurtleBot2 en Gazebo (vienen con ros-noetic-desktop-full) -->
   <exec_depend>gazebo_ros</exec_depend>
   <exec_depend>gazebo_plugins</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
-  <exec_depend>python3</exec_depend>
-  <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>python3-opencv</exec_depend>
-  <exec_depend>python3-sounddevice</exec_depend>
-  <exec_depend>python3-torch</exec_depend>
-  <exec_depend>python3-transformers</exec_depend>
-  <exec_depend>python3-whisper</exec_depend>
-  <exec_depend>python3-mediapipe</exec_depend>
-  <exec_depend>python3-fer</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <!-- Bumper del Kobuki (opcional: sin él el nodo funciona igual) -->
+  <exec_depend>kobuki_msgs</exec_depend>
+
+  <!-- Las dependencias de Python (MediaPipe, HSEmotion, Whisper, PyTorch...)
+       no se instalan con rosdep: las instala install.sh en .venv con las
+       versiones exactas de requirements-lock.txt -->
 
   <export/>
 </package>

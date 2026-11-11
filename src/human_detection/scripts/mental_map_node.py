@@ -16,6 +16,12 @@ coordenadas de odometría y centrado en el robot:
   azul         robot, su rumbo, el campo de visión y el camino recorrido
 
 Teclas: + / - zoom, c borra el camino, Esc cierra.
+
+Parámetros:
+  ~pixels_per_meter  escala inicial (110 por defecto)
+
+El nodo del robot solo calcula el mapa si hay alguien suscrito, así que no
+cuesta nada cuando esta ventana está cerrada.
 """
 import json
 import math
@@ -25,9 +31,10 @@ import numpy as np
 import rospy
 from std_msgs.msg import String
 
-SIZE = 760
-ROBOT_RADIUS = 0.177
+SIZE = 760              # lado de la ventana en píxeles
+ROBOT_RADIUS = 0.177    # radio de la base Kobuki (m)
 
+# Colores en BGR (OpenCV)
 BG = (255, 255, 255)
 GRID = (238, 238, 238)
 VIEW = (205, 205, 205)
@@ -45,7 +52,7 @@ TEXT = (40, 40, 40)
 
 class MentalMap:
     def __init__(self):
-        rospy.init_node("mapa_mental")
+        rospy.init_node("mental_map")
         self.scale = rospy.get_param("~pixels_per_meter", 110.0)
         self.data = None
         self.trail = []
@@ -64,6 +71,7 @@ class MentalMap:
 
     # ------------------------------------------------------------------
     def to_px(self, p, center):
+        """Punto en odom (m) -> píxel de la ventana, con `center` en el centro y el norte arriba."""
         return (int(round(SIZE / 2 + (p[0] - center[0]) * self.scale)),
                 int(round(SIZE / 2 - (p[1] - center[1]) * self.scale)))
 

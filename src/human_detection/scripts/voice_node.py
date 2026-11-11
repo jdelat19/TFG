@@ -1,7 +1,27 @@
 #!/usr/bin/env python3
+"""Nodo de emoción por voz.
+
+Graba fragmentos de DURATION segundos del micrófono y, para cada uno:
+  1. Transcribe el audio con Whisper ("base", en español).
+  2. Clasifica la emoción del texto con RoBERTa (TweetEval).
+  3. Clasifica la emoción del tono con wav2vec 2.0 (IEMOCAP).
+  4. Combina las dos con las frases clave de config/emociones.json
+     (reglas en emotions.combine_voice_emotions).
+
+Publica:
+  /voice_emotion (std_msgs/String, JSON)
+     {"text", "voice_emotion", "voice_score", "text_emotion", "text_score",
+      "final_emotion", "stamp"}
+
+Parámetros:
+  ~microphone  índice de sounddevice (si no existe se usa el de por defecto)
+
+Si el fragmento es silencio (sin texto) no se publica nada, para que se
+mantenga la última emoción.
+"""
 import json
-import re
-from pathlib import Path
+import os
+import sys
 
 import numpy as np
 import rospy
@@ -9,90 +29,37 @@ import sounddevice as sd
 import torch
 import whisper
 from std_msgs.msg import String
-from transformers import (
-    pipeline,
-    Wav2Vec2ForSequenceClassification,
-    Wav2Vec2FeatureExtractor,
-)
+from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification, pipeline
 
-SAMPLE_RATE = 16000
-DURATION = 4
-MICROPHONE_ID = 14
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+import emotions
+
+SAMPLE_RATE = 16000          # Hz, lo que esperan Whisper y wav2vec 2.0
+DURATION = 4                 # segundos de cada fragmento
+MICROPHONE_ID = 14           # valor por defecto (el mismo que en los launch)
 LANGUAGE = "es"
-RULES_FILE = "emociones.json"
-PUBLISH_TOPIC = "/voice_emotion"
-
-
-def load_rules(filepath):
-    script_dir = Path(__file__).resolve().parent
-    path = Path(filepath)
-    if not path.is_absolute():
-        path = script_dir / filepath
-
-    if not path.exists():
-        print(f"No existe el fichero: {path}")
-        return {}
-
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        if not isinstance(data, dict):
-            print(f"JSON inválido: se esperaba un objeto/dict y llegó {type(data)}")
-            return {}
-
-        return {
-            key.lower(): [phrase.lower() for phrase in values if isinstance(phrase, str)]
-            for key, values in data.items()
-            if isinstance(values, list)
-        }
-
-    except json.JSONDecodeError as e:
-        print(f"Error JSON en {path}: {e}")
-        return {}
-
-
-def clean_text(text: str) -> str:
-    text = text.strip().lower()
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
-def find_matches(text, phrases):
-    return [p for p in phrases if p in text.lower()]
+RULES_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "emociones.json")
+TEXT_MODEL = "cardiffnlp/twitter-roberta-base-emotion"
+VOICE_MODEL = "superb/wav2vec2-base-superb-er"
 
 
 class VoiceEmotionNode:
     def __init__(self):
         rospy.init_node("voice_emotion_node", anonymous=True)
-        self.pub = rospy.Publisher(PUBLISH_TOPIC, String, queue_size=10)
+        self.pub = rospy.Publisher("/voice_emotion", String, queue_size=10)
+        self.rules = emotions.load_voice_rules(RULES_FILE)
 
-        self.rules = load_rules(RULES_FILE)
-        self.explicit_anger = self.rules.get("anger", [])
-        self.explicit_joy = self.rules.get("joy", [])
-        self.explicit_sadness = self.rules.get("sadness", [])
-        self.explicit_fear = self.rules.get("fear", [])
-        self.explicit_neutral = self.rules.get("neutral", [])
-        self.explicit_surprise = self.rules.get("surprise", [])
-
-        self.text_emotion_model = pipeline(
-            "text-classification",
-            model="cardiffnlp/twitter-roberta-base-emotion",
-            top_k=None,
-        )
-
+        # Los tres modelos se descargan solos la primera vez (~1 GB en ~/.cache)
+        self.text_model = pipeline("text-classification", model=TEXT_MODEL, top_k=None)
         self.whisper_model = whisper.load_model("base")
-
-        voice_model_name = "superb/wav2vec2-base-superb-er"
-        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(voice_model_name)
-        self.voice_model = Wav2Vec2ForSequenceClassification.from_pretrained(voice_model_name)
-
+        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(VOICE_MODEL)
+        self.voice_model = Wav2Vec2ForSequenceClassification.from_pretrained(VOICE_MODEL)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.voice_model.to(self.device)
         self.voice_model.eval()
 
         self.microphone = self.pick_microphone(rospy.get_param("~microphone", MICROPHONE_ID))
-        self.rate = rospy.Rate(1.0 / max(DURATION, 1))
+        self.rate = rospy.Rate(1.0 / DURATION)
         rospy.loginfo("VoiceEmotionNode listo")
 
     @staticmethod
@@ -112,112 +79,49 @@ class VoiceEmotionNode:
             return wanted
 
     def record_audio(self):
-        audio = sd.rec(
-            int(DURATION * SAMPLE_RATE),
-            samplerate=SAMPLE_RATE,
-            channels=1,
-            dtype="float32",
-            device=self.microphone,
-        )
+        """Graba DURATION segundos en mono a 16 kHz (bloquea mientras graba)."""
+        audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1,
+                       dtype="float32", device=self.microphone)
         sd.wait()
         return np.squeeze(audio).astype(np.float32)
 
     def transcribe(self, audio):
         result = self.whisper_model.transcribe(audio, fp16=False, language=LANGUAGE)
-        return clean_text(result.get("text", ""))
+        return emotions.clean_text(result.get("text", ""))
 
     def predict_voice_emotion(self, audio):
-        inputs = self.feature_extractor(
-            audio,
-            sampling_rate=SAMPLE_RATE,
-            return_tensors="pt",
-            padding=True,
-        )
+        """(emoción, confianza) según el tono de voz."""
+        inputs = self.feature_extractor(audio, sampling_rate=SAMPLE_RATE, return_tensors="pt",
+                                        padding=True)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
-            logits = self.voice_model(**inputs).logits
-        probs = torch.softmax(logits, dim=1)[0]
-        top_idx = int(torch.argmax(probs).item())
-        label = self.voice_model.config.id2label[top_idx].lower()
-        score = float(probs[top_idx])
-
-        # Clases del modelo (IEMOCAP): neutral, alegría, enfado y tristeza
-        label_map = {
-            "neu": "neutral",
-            "ang": "enojo",
-            "hap": "feliz",
-            "sad": "triste",
-        }
-
-        return label_map.get(label, label), score
+            probs = torch.softmax(self.voice_model(**inputs).logits, dim=1)[0]
+        top = int(torch.argmax(probs).item())
+        label = self.voice_model.config.id2label[top].lower()
+        return emotions.VOICE_LABELS.get(label, label), float(probs[top])
 
     def analyze_text(self, text):
+        """(emoción, confianza) según el texto; neutral si tiene menos de 2 palabras."""
         if not text or len(text.split()) < 2:
-            return "neutral", 0.0, []
-
-        raw = self.text_emotion_model(text)
+            return "neutral", 0.0
+        raw = self.text_model(text)
         scores = raw[0] if isinstance(raw, list) and raw and isinstance(raw[0], list) else raw
-        scores = sorted(scores, key=lambda x: x["score"], reverse=True)
-        top = scores[0]
-
-        # Clases del modelo (TweetEval): anger, joy, optimism y sadness.
-        # "optimism" no corresponde a ninguna emoción del sistema: neutral.
-        mapping = {
-            "anger": "enojo",
-            "joy": "feliz",
-            "sadness": "triste",
-            "optimism": "neutral",
-        }
-        return mapping.get(top["label"].lower(), "neutral"), float(top["score"]), scores
-
-    def combine_emotions(self, voice_emotion, text_emotion, text):
-        v_label, v_score = voice_emotion
-        t_label, t_score, _ = text_emotion
-        text_lower = text.lower()
-
-        if find_matches(text_lower, self.explicit_anger):
-            return "enojo"
-        if find_matches(text_lower, self.explicit_joy):
-            return "feliz"
-        if find_matches(text_lower, self.explicit_sadness):
-            return "triste"
-        if find_matches(text_lower, self.explicit_fear):
-            return "miedo"
-        if find_matches(text_lower, self.explicit_surprise):
-            return "sorpresa"
-        if find_matches(text_lower, self.explicit_neutral):
-            return "neutral"
-
-        if t_label == "enojo" and t_score >= 0.40:
-            return "enojo"
-        if t_label == "feliz" and t_score >= 0.40:
-            return "feliz" if v_label in ["feliz", "neutral"] else "mixta"
-        if t_label == "triste" and t_score >= 0.40:
-            return "triste"
-        if t_label == "miedo" and t_score >= 0.40:
-            return "miedo"
-        if t_label == "sorpresa" and t_score >= 0.40:
-            return "sorpresa"
-        if t_label == "neutral":
-            return v_label
-        if v_score >= 0.55:
-            return v_label
-        return t_label
+        top = max(scores, key=lambda x: x["score"])
+        return emotions.TEXT_LABELS.get(top["label"].lower(), "neutral"), float(top["score"])
 
     def run(self):
         while not rospy.is_shutdown():
             try:
                 audio = self.record_audio()
                 text = self.transcribe(audio)
-                if not text.strip():
+                if not text:
                     # Silencio o ruido: no se publica para que se mantenga la emoción anterior
-                    rospy.loginfo("Voice: silencio (se mantiene la emoción)")
+                    rospy.loginfo("Voz: silencio (se mantiene la emoción)")
                     self.rate.sleep()
                     continue
                 voice_em = self.predict_voice_emotion(audio)
                 text_em = self.analyze_text(text)
-                final_emotion = self.combine_emotions(voice_em, text_em, text)
-
+                final = emotions.combine_voice_emotions(voice_em, text_em, text, self.rules)
                 payload = {
                     "source": "voice",
                     "text": text,
@@ -225,18 +129,13 @@ class VoiceEmotionNode:
                     "voice_score": voice_em[1],
                     "text_emotion": text_em[0],
                     "text_score": text_em[1],
-                    "final_emotion": final_emotion,
+                    "final_emotion": final,
                     "stamp": rospy.Time.now().to_sec(),
                 }
-
-                msg = String()
-                msg.data = json.dumps(payload, ensure_ascii=False)
-                self.pub.publish(msg)
-
-                rospy.loginfo(f"Voice: {final_emotion} | Texto: {text}")
+                self.pub.publish(String(data=json.dumps(payload, ensure_ascii=False)))
+                rospy.loginfo(f"Voz: {final} | Texto: {text}")
             except Exception as e:
-                rospy.logwarn(f"Voice node error: {e}")
-
+                rospy.logwarn(f"Error en el nodo de voz: {e}")
             self.rate.sleep()
 
 
@@ -245,4 +144,3 @@ if __name__ == "__main__":
         VoiceEmotionNode().run()
     except rospy.ROSInterruptException:
         pass
-

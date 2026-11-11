@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+"""Nodo de detección: cámara -> gesto, emoción facial y manos.
+
+Lee la webcam del PC (o un topic de imagen del robot), procesa cada
+fotograma con GestureDetector (MediaPipe + reglas de gestos + HSEmotion) y
+muestra la imagen con el esqueleto en la ventana "ROS Human Node" (Esc la
+cierra).
+
+Publica:
+  /human_state (std_msgs/String, JSON)
+     {"gesture", "raw_gesture", "emotion", "confidence",
+      "left_hand_landmarks", "right_hand_landmarks",
+      "voice_emotion", "voice_final_emotion", "text"}
+     Los campos de voz son los últimos recibidos de /voice_emotion, para que
+     el avatar tenga todo en un solo mensaje.
+
+Se suscribe a:
+  /voice_emotion (String, JSON) del nodo de voz (opcional)
+  ~image_topic   (Image o CompressedImage) si se da
+
+Parámetros:
+  ~mode             modo del avatar (1-4); en el modo 4 no se calcula la emoción
+  ~image_topic      "" = webcam del PC; si termina en /compressed se lee JPEG
+  ~flip             espejo horizontal (por defecto sí con la webcam)
+  ~emotion_backend  "hsemotion" (por defecto) o "fer"
+"""
 import json
 import os
 import sys
@@ -13,7 +38,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 from gesture_detector import GestureDetector
 
 
-class HumanROSNode:
+class HumanDetectorNode:
     def __init__(self):
         rospy.init_node("human_detector", anonymous=True)
         self.pub = rospy.Publisher("/human_state", String, queue_size=10)
@@ -53,7 +78,7 @@ class HumanROSNode:
             "final_emotion": "neutral",
         }
 
-        rospy.loginfo("HumanROSNode listo")
+        rospy.loginfo("HumanDetectorNode listo")
 
     def image_callback(self, msg):
         """Convierte sensor_msgs/Image a BGR sin depender de cv_bridge."""
@@ -76,6 +101,7 @@ class HumanROSNode:
         self.last_image = img
 
     def read_frame(self):
+        """(ok, imagen): de la webcam, o la última imagen recibida del topic."""
         if self.cap is not None:
             return self.cap.read()
         frame, self.last_image = self.last_image, None
@@ -88,12 +114,13 @@ class HumanROSNode:
             pass
 
     def run(self):
+        # 10 Hz: MediaPipe + HSEmotion tardan ~60-90 ms por fotograma en CPU
         rate = rospy.Rate(10)
 
         while not rospy.is_shutdown():
             ret, frame = self.read_frame()
             if not ret:
-                rospy.logwarn("No se recibió frame")
+                rospy.logwarn_throttle(5, "No llegan imágenes de la cámara")
                 rate.sleep()
                 continue
 
@@ -131,6 +158,6 @@ class HumanROSNode:
 
 if __name__ == "__main__":
     try:
-        HumanROSNode().run()
+        HumanDetectorNode().run()
     except rospy.ROSInterruptException:
         pass

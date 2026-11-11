@@ -1,10 +1,16 @@
 <launch>
-    <!-- Detección de emociones + comportamiento del TurtleBot -->
+    <!--
+      Detección de emociones + comportamiento del TurtleBot2 (real o en Gazebo).
+
+      Robot real:  roslaunch human_detection turtlebot_emotion.launch image_topic:=/camera/rgb/image_raw/compressed map:=true
+      Simulación:  roslaunch human_detection turtlebot_emotion.launch gazebo:=true world:=emotion_room map:=true
+    -->
     <arg name="use_camera" default="true" />
     <!-- Topic de la cámara del robot (vacío = webcam del PC), p. ej. /camera/rgb/image_raw -->
     <arg name="image_topic" default="" />
     <arg name="use_voice" default="false" />
     <arg name="microphone" default="14" />
+    <!-- Usa el reloj de la simulación (/clock) sin arrancar Gazebo -->
     <arg name="sim" default="false" />
     <!-- Arranca también Gazebo (implica sim) -->
     <arg name="gazebo" default="false" />
@@ -13,7 +19,7 @@
     <arg name="gui" default="true" />
     <!-- Carpeta donde guardar las vueltas de búsqueda de mesa (vacío = no guardar) -->
     <arg name="debug_dir" default="" />
-    <!-- Ventana con el mapa mental del robot (mapa_mental_node.py) -->
+    <!-- Ventana con el mapa mental del robot (mental_map_node.py) -->
     <arg name="map" default="false" />
     <!-- Sensor y odometría de la simulación (ver turtlebot_sim.launch) -->
     <arg name="sim_sensor" default="lidar" />
@@ -31,7 +37,7 @@
     </include>
 
     <group if="$(arg use_camera)">
-        <node pkg="human_detection" type="ros_node.py" name="human_detector" output="screen">
+        <node pkg="human_detection" type="human_detector_node.py" name="human_detector" output="screen">
             <param name="mode" value="1" />
             <param name="image_topic" value="$(arg image_topic)" />
         </node>
@@ -57,5 +63,5 @@
         <param name="neutral_hold" value="8.0" />
     </node>
 
-    <node if="$(arg map)" pkg="human_detection" type="mapa_mental_node.py" name="mapa_mental" output="screen" />
+    <node if="$(arg map)" pkg="human_detection" type="mental_map_node.py" name="mental_map" output="screen" />
 </launch>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pruebas de los gestos por forma de la mano con manos sintéticas."""
+"""Pruebas de gestures.py con manos y cuerpos sintéticos (sin cámara)."""
 import math
 import os
 import sys
@@ -121,3 +121,48 @@ def test_wave_needs_side_to_side_motion():
         dx = 60 * math.sin(i * math.pi / 4)
         got = winner(to_results(make_hand(**open_hand, offset=(dx, 0))), gestures)
     assert got == "saludar"
+
+
+# ---------------------------------------------------------------------------
+# Gestos corporales con un cuerpo sintético (33 puntos de MediaPipe Pose)
+# ---------------------------------------------------------------------------
+BODY = {0: (320, 100),                       # nariz
+        11: (380, 200), 12: (260, 200),      # hombros (izquierdo a la derecha de la imagen)
+        13: (420, 300), 14: (220, 300),      # codos
+        15: (440, 470), 16: (200, 470),      # muñecas: brazos caídos, separados del cuerpo
+        23: (360, 400), 24: (280, 400)}      # caderas
+
+
+def body_results(**moved):
+    """Cuerpo en reposo con algunos puntos movidos (p. ej. body_results(w15=(330, 280)))."""
+    pts = dict(BODY)
+    for key, xy in moved.items():
+        pts[int(key[1:])] = xy
+    h, w = IMAGE_SHAPE
+    lm = [SimpleNamespace(x=pts.get(i, (0, 0))[0] / w, y=pts.get(i, (0, 0))[1] / h)
+          for i in range(33)]
+    return SimpleNamespace(pose_landmarks=SimpleNamespace(landmark=lm), face_landmarks=None,
+                           left_hand_landmarks=None, right_hand_landmarks=None)
+
+
+def test_resting_body_has_no_gesture():
+    assert winner(body_results(), fresh_gestures()) == "Ninguno"
+
+
+def test_crossed_arms():
+    # Muñecas juntas delante del pecho y codos separados
+    results = body_results(w15=(300, 280), w16=(340, 280))
+    assert g.CrossedArmsGesture().check(results, IMAGE_SHAPE)
+    # Cruzar los brazos (prioridad 4) gana a manos juntas (prioridad 1)
+    assert winner(results, fresh_gestures()) == "cruzar_brazos"
+
+
+def test_hands_on_hips():
+    results = body_results(w15=(370, 390), w16=(270, 390))
+    assert g.HandsOnHipsGesture().check(results, IMAGE_SHAPE)
+
+
+def test_distance_helpers():
+    assert g.calculate_distance((0, 0), (3, 4)) == 5.0
+    assert g.calculate_distance(None, (3, 4)) == float("inf")
+    assert g.get_landmark_coords(None, 0, IMAGE_SHAPE) is None
